@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, Select, Button } from 'antd';
 import type { DeviceFormData } from '../api/deviceService';
+import type { Device } from '../types/device';
 
 interface Props {
     visible: boolean;
@@ -17,12 +18,14 @@ const DeviceFormModal: React.FC<Props> = ({ visible, onClose, onSubmit, initialD
     const [form] = Form.useForm();
 
     useEffect(() => {
-        if (initialData) {
-            form.setFieldsValue(initialData);
-        } else {
-            form.resetFields();
+        if (visible) {
+            if (initialData) {
+                form.setFieldsValue(initialData);
+            } else {
+                form.resetFields();
+            }
         }
-    }, [initialData, visible]);
+    }, [initialData, visible, form]);
 
     const handleOk = () => {
         form.validateFields()
@@ -48,8 +51,22 @@ const DeviceFormModal: React.FC<Props> = ({ visible, onClose, onSubmit, initialD
                 <Form.Item name="name" label="Tên thiết bị" rules={[{ required: true, message: 'Vui lòng nhập tên thiết bị!' }]}>
                     <Input />
                 </Form.Item>
-                <Form.Item name="deviceId" label="Device ID (Mã định danh)" rules={[{ required: true, message: 'Vui lòng nhập Device ID!' }]}>
-                    <Input />
+                <Form.Item
+                    name="deviceId"
+                    label="Device ID (Mã định danh)"
+                    rules={[
+                        { required: true, message: 'Vui lòng nhập Device ID!' },
+                        {
+                            pattern: /^[A-Z0-9-]+$/,
+                            message: 'Device ID chỉ được chứa chữ in hoa, số và dấu gạch ngang!'
+                        },
+                        {
+                            min: 3,
+                            message: 'Device ID phải có ít nhất 3 ký tự!'
+                        }
+                    ]}
+                >
+                    <Input disabled={!!initialData} placeholder="VD: DHT22-001" />
                 </Form.Item>
                 <Form.Item name="type" label="Loại thiết bị" rules={[{ required: true, message: 'Vui lòng chọn loại thiết bị!' }]}>
                     <Select placeholder="Chọn loại">
@@ -70,3 +87,18 @@ const DeviceFormModal: React.FC<Props> = ({ visible, onClose, onSubmit, initialD
 };
 
 export default DeviceFormModal;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

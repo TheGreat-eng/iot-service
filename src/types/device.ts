@@ -8,4 +8,5 @@ export interface Device {
     status: 'ONLINE' | 'OFFLINE' | 'ERROR';
     lastSeen: string;
     farmId: number;
+    currentState?: 'ON' | 'OFF';  // ✅ Nên thêm vào UI trong DevicesPage
 }

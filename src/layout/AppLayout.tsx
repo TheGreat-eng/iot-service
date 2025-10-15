@@ -38,7 +38,7 @@ const AppLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const {
-        token: { colorBgContainer, borderRadiusLG },
+        token: { colorBgContainer },
     } = theme.useToken();
 
     return (
@@ -50,10 +50,11 @@ const AppLayout: React.FC = () => {
                 style={{
                     overflow: 'auto',
                     height: '100vh',
-                    position: 'sticky',
+                    position: 'fixed', // ✅ Cố định sidebar
                     left: 0,
                     top: 0,
-                    bottom: 0
+                    bottom: 0,
+                    zIndex: 100
                 }}
             >
                 <div
@@ -82,17 +83,28 @@ const AppLayout: React.FC = () => {
                 />
             </Sider>
 
-            <Layout>
-                <AppHeader colorBgContainer={colorBgContainer} />
+            {/* ✅ THÊM: Layout bên phải với margin-left để tránh bị sidebar che */}
+            <Layout style={{
+                marginLeft: collapsed ? 80 : 200, // ✅ Đẩy content sang phải
+                transition: 'margin-left 0.2s'
+            }}>
+                {/* ✅ SỬA: Cố định Header */}
+                <div style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 99,
+                    width: '100%'
+                }}>
+                    <AppHeader colorBgContainer={colorBgContainer} />
+                </div>
 
                 <Content
                     style={{
-                        // ✅ SỬA: Giảm margin và padding để tránh tràn
                         margin: '16px',
-                        padding: 0, // Bỏ padding mặc định, để mỗi page tự quản lý
+                        padding: 0,
                         minHeight: 280,
                         background: colorBgContainer,
-                        overflow: 'auto' // ✅ THÊM: Cho phép scroll nếu nội dung quá dài
+                        overflow: 'auto'
                     }}
                 >
                     <Outlet />

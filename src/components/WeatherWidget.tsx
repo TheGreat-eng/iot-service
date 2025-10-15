@@ -1,19 +1,47 @@
 // src/components/WeatherWidget.tsx
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Typography, List } from 'antd';
+import { Card, Spin, Typography, List, Alert } from 'antd';
 import api from '../api/axiosConfig';
+import { useFarm } from '../context/FarmContext';
+
+interface WeatherData {
+    location: string;
+    temperature: number;
+    description: string;
+    iconUrl: string;
+    forecast: Array<{
+        dateTime: string;
+        temperature: number;
+        description: string;
+        iconUrl: string;
+    }>;
+}
 
 const WeatherWidget: React.FC = () => {
-    const [weather, setWeather] = useState<any>(null);
+    const { farmId } = useFarm(); // ✅ Dùng Context
+    const [weather, setWeather] = useState<WeatherData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        api.get('/weather/forecast?farmId=1')
-            .then(res => setWeather(res.data.data))
-            .finally(() => setLoading(false));
-    }, []);
+        const fetchWeather = async () => {
+            try {
+                setLoading(true);
+                const res = await api.get<{ data: WeatherData }>(`/weather/forecast?farmId=${farmId}`);
+                setWeather(res.data.data);
+                setError(null);
+            } catch (err) {
+                console.error('Failed to fetch weather:', err);
+                setError('Không thể tải dữ liệu thời tiết');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchWeather();
+    }, [farmId]);
 
-    if (loading) return <Card><Spin /></Card>;
+    if (loading) return <Card><Spin tip="Đang tải thời tiết..." /></Card>;
+    if (error) return <Card><Alert message={error} type="warning" showIcon /></Card>;
     if (!weather) return <Card>Không có dữ liệu thời tiết.</Card>;
 
     return (

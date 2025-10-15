@@ -4,37 +4,40 @@ import React, { useEffect, useState } from 'react';
 import { List, Switch, Button, Typography, Spin, message, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getRulesByFarm, deleteRule, toggleRuleStatus } from '../api/ruleService'; // Import thêm các service mới
+import { getRulesByFarm, deleteRule, toggleRuleStatus } from '../api/ruleService'; // ✅ Import đầy đủ
 import type { Rule } from '../types/rule';
+import { useFarm } from '../context/FarmContext';
 
 const { Title, Text } = Typography;
 
 const RulesPage: React.FC = () => {
+    const { farmId } = useFarm();
     const [rules, setRules] = useState<Rule[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const farmId = 1;
-
-    const fetchRules = () => {
-        setLoading(true);
-        getRulesByFarm(farmId)
-            .then(response => setRules(response.data.data))
-            .catch(err => {
-                console.error(err);
-                message.error("Không thể tải danh sách quy tắc.");
-            })
-            .finally(() => setLoading(false));
-    };
 
     useEffect(() => {
         fetchRules();
     }, [farmId]);
 
+    // ✅ SỬA: Dùng getRulesByFarm thay vì gọi api.get trực tiếp
+    const fetchRules = async () => {
+        setLoading(true);
+        try {
+            const response = await getRulesByFarm(farmId); // ✅ Dùng service đã có
+            setRules(response.data.data);
+        } catch (error) {
+            console.error('Failed to fetch rules:', error);
+            message.error('Không thể tải danh sách quy tắc');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleToggle = async (ruleId: number, enabled: boolean) => {
         try {
             await toggleRuleStatus(ruleId, enabled);
             message.success(`Đã ${enabled ? 'bật' : 'tắt'} quy tắc.`);
-            // Cập nhật lại state để giao diện thay đổi ngay lập tức
             setRules(prevRules =>
                 prevRules.map(rule =>
                     rule.id === ruleId ? { ...rule, enabled } : rule
@@ -49,7 +52,7 @@ const RulesPage: React.FC = () => {
         try {
             await deleteRule(ruleId);
             message.success("Đã xóa quy tắc.");
-            fetchRules(); // Tải lại danh sách sau khi xóa
+            fetchRules();
         } catch (error) {
             message.error("Xóa quy tắc thất bại.");
         }
@@ -72,13 +75,17 @@ const RulesPage: React.FC = () => {
                     <List.Item
                         actions={[
                             <Switch
+                                key="switch"
                                 checkedChildren="Bật"
                                 unCheckedChildren="Tắt"
                                 checked={item.enabled}
                                 onChange={(checked) => handleToggle(item.id!, checked)}
                             />,
-                            <Button type="text" icon={<EditOutlined />} onClick={() => navigate(`/rules/edit/${item.id}`)}>Sửa</Button>,
+                            <Button key="edit" type="text" icon={<EditOutlined />} onClick={() => navigate(`/rules/edit/${item.id}`)}>
+                                Sửa
+                            </Button>,
                             <Popconfirm
+                                key="delete"
                                 title="Xóa quy tắc"
                                 description="Bạn có chắc muốn xóa quy tắc này?"
                                 onConfirm={() => handleDelete(item.id!)}

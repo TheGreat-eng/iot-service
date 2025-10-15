@@ -1,18 +1,18 @@
 // src/pages/FarmsPage.tsx
 
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Button, Typography, Spin, message, Popconfirm, Empty } from 'antd';
+import { Row, Col, Card, Button, Typography, Spin, message, Popconfirm, Empty, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WifiOutlined } from '@ant-design/icons';
-import { getFarms, createFarm, updateFarm, deleteFarm, FarmFormData } from '../api/farmService';
-import { Farm } from '../types/farm';
+import { getFarms, createFarm, updateFarm, deleteFarm } from '../api/farmService';
+import type { Farm, FarmFormData } from '../types/farm';
 import FarmFormModal from '../components/FarmFormModal';
+import { useFarm } from '../context/FarmContext';
 
 const { Title, Text } = Typography;
 
 const FarmsPage: React.FC = () => {
-    // ===> SỬA LỖI Ở ĐÂY: Khởi tạo state là một mảng rỗng để không bao giờ là undefined <===
+    const { farmId, setFarmId } = useFarm(); // ✅ Thêm setFarmId
     const [farms, setFarms] = useState<Farm[]>([]);
-
     const [loading, setLoading] = useState(true);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
@@ -48,7 +48,6 @@ const FarmsPage: React.FC = () => {
         fetchFarms();
     }, []);
 
-    // ... các hàm xử lý form và delete giữ nguyên như cũ ...
     const handleFormSubmit = async (values: FarmFormData) => {
         setFormLoading(true);
         try {
@@ -87,11 +86,69 @@ const FarmsPage: React.FC = () => {
         setIsModalVisible(true);
     };
 
+    const columns = [
+        {
+            title: 'Farm ID',
+            dataIndex: 'id',  // ✅ ĐÚNG
+            key: 'id',
+        },
+        {
+            title: 'Tên nông trại',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Địa điểm',
+            dataIndex: 'location',
+            key: 'location',
+        },
+        {
+            title: 'Thiết bị online',
+            dataIndex: 'onlineDevices',
+            key: 'onlineDevices',
+        },
+        {
+            title: 'Tổng số thiết bị',
+            dataIndex: 'totalDevices',
+            key: 'totalDevices',
+        },
+        {
+            title: 'Hành động',
+            key: 'action',
+            render: (_: any, record: Farm) => (
+                <Space size="middle">
+                    <Button
+                        type={farmId === record.id ? 'primary' : 'default'}  // ✅ ĐÚNG
+                        onClick={() => {
+                            setFarmId(record.id);  // ✅ ĐÚNG
+                            message.success(`Đã chuyển sang farm: ${record.name}`);  // ✅ ĐÚNG
+                        }}
+                    >
+                        {farmId === record.id ? 'Farm hiện tại' : 'Chuyển đến'}
+                    </Button>
+                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
+                        Sửa
+                    </Button>
+                    <Popconfirm
+                        title="Xóa nông trại?"
+                        description="Hành động này sẽ xóa cả nông trại và các thiết bị bên trong."
+                        onConfirm={() => handleDelete(record.id)} // ✅ Đúng: farm.id
+                        okText="Xóa"
+                        cancelText="Hủy"
+                    >
+                        <Button type="link" danger icon={<DeleteOutlined />}>
+                            Xóa
+                        </Button>
+                    </Popconfirm>,
+                </Space>
+            ),
+        },
+    ];
+
     if (loading) {
         return <Spin tip="Đang tải..." size="large" style={{ display: 'block', marginTop: 50 }} />;
     }
 
-    // Phần JSX return giữ nguyên
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -113,7 +170,7 @@ const FarmsPage: React.FC = () => {
                                     <Popconfirm
                                         title="Xóa nông trại?"
                                         description="Hành động này sẽ xóa cả nông trại và các thiết bị bên trong."
-                                        onConfirm={() => handleDelete(farm.id)}
+                                        onConfirm={() => handleDelete(farm.id)} // ✅ Đúng: farm.id
                                         okText="Xóa"
                                         cancelText="Hủy"
                                     >

@@ -9,7 +9,6 @@ export interface Farm {
     onlineDevices?: number;
 }
 
-// ===> THÊM ĐỊNH NGHĨA NÀY VÀO ĐÂY <===
 export interface FarmFormData {
     name: string;
     location?: string;

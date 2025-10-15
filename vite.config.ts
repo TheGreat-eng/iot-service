@@ -13,5 +13,16 @@ export default defineConfig({
         javascriptEnabled: true,
       }
     }
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-antd': ['antd'],
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
+  },
 })

@@ -3,19 +3,19 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Spin, Typography, List, Empty, Avatar } from 'antd';
 import api from '../../api/axiosConfig';
+import { useFarm } from '../../context/FarmContext'; // ✅ THÊM
 
 const { Text } = Typography;
 
 const WeatherWidget: React.FC = () => {
+    const { farmId } = useFarm(); // ✅ SỬA: Lấy từ Context
     const [weatherData, setWeatherData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const farmId = 1; // Tạm thời hardcode farmId
 
     useEffect(() => {
         const fetchWeather = async () => {
             try {
                 setLoading(true);
-                // Backend đã có API /forecast trả về cả thông tin hiện tại và dự báo
                 const response = await api.get(`/weather/forecast?farmId=${farmId}`);
                 setWeatherData(response.data.data);
             } catch (error) {
@@ -27,13 +27,11 @@ const WeatherWidget: React.FC = () => {
 
         fetchWeather();
 
-        // Thiết lập tự động gọi lại API sau mỗi 30 phút
         const interval = setInterval(fetchWeather, 30 * 60 * 1000);
 
-        // Dọn dẹp interval khi component unmount
         return () => clearInterval(interval);
 
-    }, [farmId]);
+    }, [farmId]); // ✅ THÊM dependency
 
     if (loading) {
         return (
@@ -65,7 +63,7 @@ const WeatherWidget: React.FC = () => {
             <List
                 size="small"
                 header={<Text strong>Dự báo ngắn hạn</Text>}
-                dataSource={weatherData.forecast?.slice(0, 4) || []} // Lấy 4 mốc dự báo tiếp theo
+                dataSource={weatherData.forecast?.slice(0, 4) || []}
                 renderItem={(item: any) => (
                     <List.Item>
                         <List.Item.Meta

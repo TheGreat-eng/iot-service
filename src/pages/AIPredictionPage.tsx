@@ -6,14 +6,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { BulbOutlined } from '@ant-design/icons';
 import { getAIPredictions } from '../api/aiService';
 import type { AIPredictionResponse, AIPredictionPoint } from '../types/ai';
+import { useFarm } from '../context/FarmContext';
 
 const { Title, Paragraph, Text } = Typography;
 
 const AIPredictionPage: React.FC = () => {
+    const { farmId } = useFarm(); // ✅ Thêm
     const [predictionData, setPredictionData] = useState<AIPredictionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const farmId = 1;
 
     useEffect(() => {
         setLoading(true);
@@ -26,7 +27,7 @@ const AIPredictionPage: React.FC = () => {
                 setError("Không thể lấy dữ liệu dự đoán từ AI. Dịch vụ có thể đang bảo trì.");
             })
             .finally(() => setLoading(false));
-    }, [farmId]);
+    }, [farmId]); // ✅ Thêm dependency
 
     if (loading) {
         return <Spin tip="AI đang phân tích dữ liệu..." size="large" />;
