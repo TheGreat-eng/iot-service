@@ -1,17 +1,20 @@
-// src/pages/DashboardPage.tsx
-
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, Spin, Alert, Typography, Tabs } from 'antd';
 import { Thermometer, Droplet, Sun, Wifi, BarChart3, Beaker } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../api/axiosConfig';
 import { Client } from '@stomp/stompjs';
+// ✅ SỬA: Import từ thư mục dashboard thay vì thư mục gốc
+import WeatherWidget from '../components/dashboard/WeatherWidget';
 
 const { Title } = Typography;
 
 interface ChartDataPoint {
     time: string;
-    [key: string]: number | string | undefined;
+    temperature?: number;
+    humidity?: number;
+    soilMoisture?: number;
+    soilPH?: number;
 }
 
 const DashboardPage: React.FC = () => {
@@ -23,7 +26,6 @@ const DashboardPage: React.FC = () => {
 
     const farmId = 1;
 
-    // PHẦN 1: Tải dữ liệu ban đầu khi vào trang
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -42,12 +44,8 @@ const DashboardPage: React.FC = () => {
         fetchData();
     }, [farmId]);
 
-    // =====================================================================
-    // ====> BỔ SUNG ĐOẠN LOGIC WEBSOCKET BỊ THIẾU VÀO ĐÂY <====
-    // =====================================================================
     useEffect(() => {
         const client = new Client({
-            // SỬA LẠI BROKER URL
             webSocketFactory: () => new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/websocket`),
             reconnectDelay: 5000,
         });
@@ -55,36 +53,32 @@ const DashboardPage: React.FC = () => {
         client.onConnect = () => {
             console.log('✅ WebSocket/STOMP Connected!');
 
-            // Lắng nghe topic dữ liệu cảm biến của farm
             client.subscribe(`/topic/farm/${farmId}/sensor-data`, (message) => {
                 try {
                     const newData = JSON.parse(message.body);
                     console.log('📬 Received real-time data:', newData);
 
-                    // Cập nhật các card thống kê
                     setSummary((prevSummary: any) => {
                         if (!prevSummary) return null;
                         const newAvg = { ...prevSummary.averageEnvironment };
-                        if (newData.temperature) newAvg.avgTemperature = newData.temperature;
-                        if (newData.humidity) newAvg.avgHumidity = newData.humidity;
-                        if (newData.soilMoisture) newAvg.avgSoilMoisture = newData.soilMoisture;
-                        if (newData.soilPH) newAvg.avgSoilPH = newData.soilPH;
-                        if (newData.lightIntensity) newAvg.avgLightIntensity = newData.lightIntensity;
+                        if (newData.temperature !== undefined) newAvg.avgTemperature = newData.temperature;
+                        if (newData.humidity !== undefined) newAvg.avgHumidity = newData.humidity;
+                        if (newData.soilMoisture !== undefined) newAvg.avgSoilMoisture = newData.soilMoisture;
+                        if (newData.soilPH !== undefined) newAvg.avgSoilPH = newData.soilPH;
+                        if (newData.lightIntensity !== undefined) newAvg.avgLightIntensity = newData.lightIntensity;
                         return { ...prevSummary, averageEnvironment: newAvg };
                     });
 
-                    // Thêm điểm dữ liệu mới vào biểu đồ và xóa điểm cũ nhất
                     setChartData(prevData => {
                         const newPoint: ChartDataPoint = {
                             time: new Date(newData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         };
-                        if (newData.temperature) newPoint.temperature = newData.temperature;
-                        if (newData.humidity) newPoint.humidity = newData.humidity;
-                        if (newData.soilMoisture) newPoint.soilMoisture = newData.soilMoisture;
-                        if (newData.soilPH) newPoint.soilPH = newData.soilPH;
+                        if (newData.temperature !== undefined) newPoint.temperature = newData.temperature;
+                        if (newData.humidity !== undefined) newPoint.humidity = newData.humidity;
+                        if (newData.soilMoisture !== undefined) newPoint.soilMoisture = newData.soilMoisture;
+                        if (newData.soilPH !== undefined) newPoint.soilPH = newData.soilPH;
 
                         const updatedData = [...prevData, newPoint];
-                        // Giới hạn số điểm trên biểu đồ để không bị quá tải
                         if (updatedData.length > 30) {
                             updatedData.shift();
                         }
@@ -102,10 +96,8 @@ const DashboardPage: React.FC = () => {
             console.error('Additional details: ' + frame.body);
         };
 
-        // Kích hoạt kết nối
         client.activate();
 
-        // Dọn dẹp: ngắt kết nối khi component bị unmount
         return () => {
             if (client.active) {
                 client.deactivate();
@@ -113,8 +105,6 @@ const DashboardPage: React.FC = () => {
             }
         };
     }, [farmId]);
-
-    // Phần còn lại của component (fetchChartData, renderChart, return JSX) giữ nguyên như cũ
 
     const fetchChartData = async (chartType: 'env' | 'soil') => {
         try {
@@ -158,41 +148,155 @@ const DashboardPage: React.FC = () => {
         fetchChartData(chartType);
     };
 
-    const renderChart = () => { /* ... giữ nguyên ... */
+    const renderChart = () => {
         if (activeChart === 'env') {
-            return (<ResponsiveContainer width="100%" height={350}>
-                <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="time" /><YAxis yAxisId="left" stroke="#ff4d4f" domain={[10, 40]} /><YAxis yAxisId="right" orientation="right" stroke="#1677ff" domain={[20, 100]} /><Tooltip /><Legend /><Line yAxisId="left" type="monotone" dataKey="temperature" stroke="#ff4d4f" name="Nhiệt độ (°C)" /><Line yAxisId="right" type="monotone" dataKey="humidity" stroke="#1677ff" name="Độ ẩm không khí (%)" /></LineChart>
-            </ResponsiveContainer>);
+            return (
+                <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" />
+                        <YAxis yAxisId="left" stroke="#ff4d4f" domain={[10, 40]} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#1677ff" domain={[20, 100]} />
+                        <Tooltip />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="temperature" stroke="#ff4d4f" name="Nhiệt độ (°C)" />
+                        <Line yAxisId="right" type="monotone" dataKey="humidity" stroke="#1677ff" name="Độ ẩm không khí (%)" />
+                    </LineChart>
+                </ResponsiveContainer>
+            );
         }
         if (activeChart === 'soil') {
-            return (<ResponsiveContainer width="100%" height={350}>
-                <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="time" /><YAxis yAxisId="left" stroke="#82ca9d" domain={[0, 100]} /><YAxis yAxisId="right" orientation="right" stroke="#ffc658" domain={[4, 9]} /><Tooltip /><Legend /><Line yAxisId="left" type="monotone" dataKey="soilMoisture" stroke="#82ca9d" name="Độ ẩm đất (%)" /><Line yAxisId="right" type="monotone" dataKey="soilPH" stroke="#ffc658" name="Độ pH đất" /></LineChart>
-            </ResponsiveContainer>);
+            return (
+                <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" />
+                        <YAxis yAxisId="left" stroke="#82ca9d" domain={[0, 100]} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#ffc658" domain={[4, 9]} />
+                        <Tooltip />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="soilMoisture" stroke="#82ca9d" name="Độ ẩm đất (%)" />
+                        <Line yAxisId="right" type="monotone" dataKey="soilPH" stroke="#ffc658" name="Độ pH đất" />
+                    </LineChart>
+                </ResponsiveContainer>
+            );
         }
         return null;
+    };
+
+    if (loading && !summary) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <Spin size="large" tip="Đang tải dữ liệu..." />
+            </div>
+        );
     }
 
-    if (loading && !summary) { return (<Spin size="large" tip="Đang tải dữ liệu..." style={{ display: 'block', marginTop: '50px' }} />); }
-    if (error) { return (<Alert message="Lỗi" description={error} type="error" showIcon />); }
+    if (error) {
+        return <Alert message="Lỗi" description={error} type="error" showIcon style={{ margin: '20px' }} />;
+    }
 
     return (
-        <div>
+        <div style={{ padding: '0' }}>
             <Title level={2} style={{ marginBottom: '24px' }}>Dashboard Tổng Quan</Title>
+
             <Row gutter={[16, 16]}>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Thiết bị Online" value={summary?.onlineDevices} prefix={<Wifi color="green" />} suffix={`/ ${summary?.totalDevices}`} /></Card></Col>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Nhiệt độ TB" value={summary?.averageEnvironment?.avgTemperature} precision={1} prefix={<Thermometer color="#ff4d4f" />} suffix="°C" /></Card></Col>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Độ ẩm KK" value={summary?.averageEnvironment?.avgHumidity} precision={1} prefix={<Droplet color="#1677ff" />} suffix="%" /></Card></Col>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Độ ẩm Đất" value={summary?.averageEnvironment?.avgSoilMoisture} precision={1} prefix={<BarChart3 color="#82ca9d" />} suffix="%" /></Card></Col>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Độ pH Đất" value={summary?.averageEnvironment?.avgSoilPH} precision={2} prefix={<Beaker color="#ffc658" />} /></Card></Col>
-                <Col xs={12} sm={12} md={8} lg={8} xl={4}><Card><Statistic title="Ánh sáng TB" value={summary?.averageEnvironment?.avgLightIntensity} precision={0} prefix={<Sun color="#faad14" />} suffix=" lux" /></Card></Col>
+                <Col xs={24} lg={16}>
+                    <Row gutter={[16, 16]}>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Thiết bị Online"
+                                    value={summary?.onlineDevices ?? 0}
+                                    prefix={<Wifi color="green" size={20} />}
+                                    suffix={`/ ${summary?.totalDevices ?? 0}`}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Nhiệt độ TB"
+                                    value={summary?.averageEnvironment?.avgTemperature ?? 0}
+                                    precision={1}
+                                    prefix={<Thermometer color="#ff4d4f" size={20} />}
+                                    suffix="°C"
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Độ ẩm KK"
+                                    value={summary?.averageEnvironment?.avgHumidity ?? 0}
+                                    precision={1}
+                                    prefix={<Droplet color="#1677ff" size={20} />}
+                                    suffix="%"
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Độ ẩm Đất"
+                                    value={summary?.averageEnvironment?.avgSoilMoisture ?? 0}
+                                    precision={1}
+                                    prefix={<BarChart3 color="#82ca9d" size={20} />}
+                                    suffix="%"
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Độ pH Đất"
+                                    value={summary?.averageEnvironment?.avgSoilPH ?? 0}
+                                    precision={2}
+                                    prefix={<Beaker color="#ffc658" size={20} />}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                            <Card hoverable style={{ height: '100%' }}>
+                                <Statistic
+                                    title="Ánh sáng TB"
+                                    value={summary?.averageEnvironment?.avgLightIntensity ?? 0}
+                                    precision={0}
+                                    prefix={<Sun color="#faad14" size={20} />}
+                                    suffix=" lux"
+                                />
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    <Card style={{ marginTop: '24px' }} title="Biểu đồ theo dõi">
+                        <Tabs
+                            defaultActiveKey="env"
+                            onChange={handleTabChange}
+                            items={[
+                                { key: 'env', label: 'Môi trường (Không khí)' },
+                                { key: 'soil', label: 'Dữ liệu Đất' },
+                            ]}
+                        />
+                        {renderChart()}
+                    </Card>
+                </Col>
+
+                <Col xs={24} lg={8}>
+                    <WeatherWidget />
+
+                    <Card style={{ marginTop: '16px' }} title="⚠️ Cảnh báo" size="small">
+                        <p style={{ margin: '8px 0' }}>• Nhiệt độ cao (35°C)</p>
+                        <p style={{ margin: '8px 0' }}>• Độ ẩm đất thấp (25%)</p>
+                        <p style={{ margin: '8px 0', color: '#52c41a' }}>✓ Hệ thống hoạt động bình thường</p>
+                    </Card>
+
+                    <Card style={{ marginTop: '16px' }} title="💡 Gợi ý AI" size="small">
+                        <p style={{ margin: '8px 0' }}>• Nên tưới nước trong 30 phút tới</p>
+                        <p style={{ margin: '8px 0' }}>• Bật quạt để giảm nhiệt độ</p>
+                    </Card>
+                </Col>
             </Row>
-            <Card style={{ marginTop: '24px' }}> {/* Wrap Tabs.TabPane in a single JSX element */}
-                <Tabs defaultActiveKey="env" onChange={handleTabChange}>
-                    <Tabs.TabPane tab="Môi trường (Không khí)" key="env" />
-                    <Tabs.TabPane tab="Dữ liệu Đất" key="soil" />
-                </Tabs>
-                {renderChart()}
-            </Card>
         </div>
     );
 };

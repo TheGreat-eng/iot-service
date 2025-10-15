@@ -15,6 +15,7 @@ import AIPredictionPage from './pages/AIPredictionPage'; // Import trang mới
 import RegisterPage from './pages/RegisterPage'; // Import trang thật
 
 
+import NotFoundPage from './pages/NotFoundPage'; // Import trang 404
 
 import ChangePasswordPage from './pages/ChangePasswordPage'; // Import trang mới
 // src/App.tsx
@@ -61,7 +62,7 @@ function App() {
         </Route>
 
         {/* Chuyển hướng nếu vào trang không tồn tại */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
