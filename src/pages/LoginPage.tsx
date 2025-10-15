@@ -5,7 +5,7 @@ import { Form, Input, Button, Card, message, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/authService';
-import { setAuthData, isAuthenticated, clearAuthData, getUserFromToken } from '../utils/auth';
+import { setAuthData, isAuthenticated, clearAuthData } from '../utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -27,22 +27,17 @@ const LoginPage: React.FC = () => {
             
             console.log('🔍 Full response:', response.data);
 
-            // ✅ SỬA: Backend có thể chỉ trả về token
-            const { token, user } = response.data;
+            // ✅ SỬA: Backend trả về full user info
+            const { token, userId, email, fullName, role } = response.data;
 
-            // ✅ Nếu không có user, decode từ token
-            let userInfo = user;
-            if (!userInfo && token) {
-                const decoded = getUserFromToken(token);
-                if (decoded) {
-                    userInfo = {
-                        userId: decoded.userId,
-                        username: decoded.username || values.username,
-                        email: values.username, // Email chính là username
-                        roles: decoded.roles || ['FARMER']
-                    };
-                }
-            }
+            // ✅ Chuẩn hóa user object
+            const userInfo = {
+                userId: userId,
+                username: email.split('@')[0], // "farmer1"
+                email: email,
+                fullName: fullName,
+                roles: [role], // ✅ Convert single role -> array
+            };
 
             console.log('✅ Saving token:', token);
             console.log('✅ Saving user:', userInfo);

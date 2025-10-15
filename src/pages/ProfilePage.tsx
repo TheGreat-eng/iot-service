@@ -1,9 +1,9 @@
 // src/pages/ProfilePage.tsx
 import React, { useEffect, useState } from 'react';
 import { Card, Avatar, Typography, Descriptions, Spin, Result, Button, Space } from 'antd';
-import { UserOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
+import { UserOutlined, MailOutlined, PhoneOutlined, IdcardOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getAuthToken, getUserFromToken, getUserFromStorage } from '../utils/auth';
+import { getAuthToken, getUserFromStorage } from '../utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -15,27 +15,22 @@ const ProfilePage: React.FC = () => {
     useEffect(() => {
         const loadUserData = () => {
             const token = getAuthToken();
+            console.log('🔍 Token:', token);
 
             if (!token) {
+                console.warn('⚠️ No token found');
                 setLoading(false);
                 return;
             }
 
-            // ✅ Lấy data từ token (luôn có)
-            const decodedUser = getUserFromToken(token);
-
-            // ✅ Lấy data từ localStorage (có thể không có)
+            // ✅ Lấy user từ localStorage (đã được lưu khi login)
             const storedUser = getUserFromStorage();
+            console.log('🔍 Stored user:', storedUser);
 
-            if (decodedUser) {
-                setUser({
-                    // ✅ Ưu tiên data từ localStorage
-                    ...storedUser,
-                    // ✅ Override bằng data từ token (chắc chắn đúng)
-                    userId: decodedUser.userId,
-                    username: decodedUser.username,
-                    roles: decodedUser.roles,
-                });
+            if (storedUser) {
+                setUser(storedUser);
+            } else {
+                console.error('❌ No user data found');
             }
 
             setLoading(false);
@@ -44,7 +39,6 @@ const ProfilePage: React.FC = () => {
         loadUserData();
     }, []);
 
-    // ✅ Loading state
     if (loading) {
         return (
             <div style={{
@@ -58,7 +52,6 @@ const ProfilePage: React.FC = () => {
         );
     }
 
-    // ✅ No user state
     if (!user) {
         return (
             <Result
@@ -79,7 +72,6 @@ const ProfilePage: React.FC = () => {
         );
     }
 
-    // ✅ Render user info
     return (
         <div style={{ padding: '24px' }}>
             <Title level={2} style={{ marginBottom: 24 }}>
@@ -119,20 +111,22 @@ const ProfilePage: React.FC = () => {
                 <Descriptions
                     bordered
                     column={1}
-                    labelStyle={{
-                        width: '200px',
-                        fontWeight: 500
+                    styles={{
+                        label: {
+                            width: '200px',
+                            fontWeight: 500
+                        }
                     }}
                 >
                     <Descriptions.Item
                         label={
                             <Space>
-                                <UserOutlined />
-                                Tên đăng nhập
+                                <IdcardOutlined />
+                                User ID
                             </Space>
                         }
                     >
-                        {user.username || 'Chưa có thông tin'}
+                        <Text code>{user.userId}</Text>
                     </Descriptions.Item>
 
                     <Descriptions.Item
@@ -144,6 +138,17 @@ const ProfilePage: React.FC = () => {
                         }
                     >
                         {user.fullName || 'Chưa cập nhật'}
+                    </Descriptions.Item>
+
+                    <Descriptions.Item
+                        label={
+                            <Space>
+                                <UserOutlined />
+                                Tên đăng nhập
+                            </Space>
+                        }
+                    >
+                        {user.username || 'Chưa có thông tin'}
                     </Descriptions.Item>
 
                     <Descriptions.Item
@@ -166,10 +171,6 @@ const ProfilePage: React.FC = () => {
                         }
                     >
                         {user.phone || 'Chưa cập nhật'}
-                    </Descriptions.Item>
-
-                    <Descriptions.Item label="User ID">
-                        <Text code>{user.userId}</Text>
                     </Descriptions.Item>
                 </Descriptions>
 

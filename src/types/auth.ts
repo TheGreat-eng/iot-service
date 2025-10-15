@@ -10,6 +10,15 @@ export interface RegisterRequest {
     name?: string;
 }
 
+// ✅ THÊM: Interface cho Login Response
+export interface LoginResponse {
+    token: string;
+    userId: number;
+    email: string;
+    fullName: string;
+    role: string;
+}
+
 export interface AuthResponse {
     token: string;
     userId: string;
@@ -23,7 +32,7 @@ import { jwtDecode } from 'jwt-decode';
 
 interface DecodedToken {
     exp: number;
-    sub: string; // ✅ Email nằm trong field "sub"
+    sub: string; // Email
     userId?: string;
     username?: string;
     roles?: string[];
@@ -68,11 +77,10 @@ export const getUserFromToken = (token: string): any | null => {
     try {
         const decoded = jwtDecode<DecodedToken>(token);
         
-        // ✅ SỬA: Map field "sub" sang "email"
         return {
-            userId: decoded.sub, // ✅ "sub" chính là email
-            username: decoded.sub.split('@')[0], // ✅ Lấy phần trước @ làm username
-            email: decoded.sub,
+            userId: decoded.sub,                    
+            username: decoded.sub.split('@')[0],    
+            email: decoded.sub,                     
             roles: decoded.roles || ['FARMER']
         };
     } catch (error) {
@@ -110,7 +118,6 @@ export const setAuthData = (token: string, user?: any): void => {
     if (user && typeof user === 'object') {
         localStorage.setItem('user', JSON.stringify(user));
     } else {
-        // ✅ Nếu không có user, tạo từ token
         const decodedUser = getUserFromToken(token);
         if (decodedUser) {
             localStorage.setItem('user', JSON.stringify(decodedUser));
@@ -126,7 +133,6 @@ export const getUserFromStorage = (): any | null => {
         const userStr = localStorage.getItem('user');
         
         if (!userStr || userStr === 'undefined' || userStr === 'null') {
-            // ✅ Fallback: Lấy từ token
             const token = getAuthToken();
             if (token) {
                 return getUserFromToken(token);
@@ -139,7 +145,6 @@ export const getUserFromStorage = (): any | null => {
         console.error('Failed to parse user from localStorage:', error);
         localStorage.removeItem('user');
         
-        // ✅ Fallback: Lấy từ token
         const token = getAuthToken();
         if (token) {
             return getUserFromToken(token);
