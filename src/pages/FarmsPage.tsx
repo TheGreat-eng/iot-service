@@ -1,13 +1,14 @@
 // src/pages/FarmsPage.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; // ✅ BỎ useCallback
 import { Row, Col, Card, Button, Typography, Spin, message, Popconfirm, Empty, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WifiOutlined } from '@ant-design/icons';
 import { getFarms, createFarm, updateFarm, deleteFarm } from '../api/farmService';
 import type { Farm, FarmFormData } from '../types/farm';
 import FarmFormModal from '../components/FarmFormModal';
 import { useFarm } from '../context/FarmContext';
-import { useApiCall } from '../hooks/useApiCall'; // ✅ THÊM
+import { useApiCall } from '../hooks/useApiCall';
+import { SUCCESS_MESSAGES } from '../constants/messages';
 
 const { Title, Text } = Typography;
 
@@ -17,52 +18,62 @@ const FarmsPage: React.FC = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
 
-    // ✅ THÊM: Sử dụng custom hook
     const { loading, execute: fetchFarmsApi } = useApiCall<Farm[]>({
         onSuccess: (data) => setFarms(data),
-        errorMessage: 'Không thể tải danh sách nông trại'
     });
 
     const { loading: formLoading, execute: saveFarmApi } = useApiCall({
         showSuccessMessage: true,
-        onSuccess: () => {
-            setIsModalVisible(false);
-            fetchFarms();
-        }
     });
 
     const { execute: deleteFarmApi } = useApiCall({
-        successMessage: 'Xóa nông trại thành công!',
+        successMessage: SUCCESS_MESSAGES.FARM_DELETED,
         showSuccessMessage: true,
-        onSuccess: fetchFarms
     });
 
-    const fetchFarms = () => {
-        fetchFarmsApi(async () => {
-            const response = await getFarms();
-            const farmData = response.data.data || response.data;
-            return Array.isArray(farmData) ? farmData : [];
-        });
+    // ✅ SỬA: Định nghĩa fetchFarms bình thường, KHÔNG dùng useCallback
+    const fetchFarms = async () => {
+        try {
+            await fetchFarmsApi(async () => {
+                const response = await getFarms();
+                const farmData = response.data.data || response.data;
+                return Array.isArray(farmData) ? farmData : [];
+            });
+        } catch (error) {
+            console.error('Failed to fetch farms:', error);
+        }
     };
 
+    // ✅ SỬA: useEffect chỉ chạy 1 lần khi mount
     useEffect(() => {
         fetchFarms();
-    }, []);
+    }, []); // ✅ Empty dependency array
 
     const handleFormSubmit = async (values: FarmFormData) => {
-        saveFarmApi(async () => {
-            if (editingFarm) {
-                await updateFarm(editingFarm.id, values);
-                return { successMessage: 'Cập nhật nông trại thành công!' };
-            } else {
-                await createFarm(values);
-                return { successMessage: 'Thêm nông trại thành công!' };
-            }
-        });
+        try {
+            await saveFarmApi(async () => {
+                if (editingFarm) {
+                    await updateFarm(editingFarm.id, values);
+                    message.success(SUCCESS_MESSAGES.FARM_UPDATED);
+                } else {
+                    await createFarm(values);
+                    message.success(SUCCESS_MESSAGES.FARM_CREATED);
+                }
+            });
+            setIsModalVisible(false);
+            fetchFarms(); // ✅ Gọi lại để refresh
+        } catch (error) {
+            console.error('Failed to save farm:', error);
+        }
     };
 
     const handleDelete = async (id: number) => {
-        deleteFarmApi(() => deleteFarm(id));
+        try {
+            await deleteFarmApi(() => deleteFarm(id));
+            fetchFarms(); // ✅ Gọi lại để refresh
+        } catch (error) {
+            console.error('Failed to delete farm:', error);
+        }
     };
 
     const openCreateModal = () => {
@@ -78,7 +89,7 @@ const FarmsPage: React.FC = () => {
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-                <Spin tip="Đang tải danh sách nông trại..." size="large" />
+                <Spin size="large" />
             </div>
         );
     }

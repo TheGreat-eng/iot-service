@@ -1,14 +1,17 @@
 // src/pages/DevicesPage.tsx
 
-import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, Card, message, Typography, Popconfirm, Modal } from 'antd';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Table, Button, Space, Tag, Card, message, Typography, Popconfirm, Modal, Input } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { getDevicesByFarm, createDevice, updateDevice, deleteDevice, controlDevice } from '../api/deviceService';
 import type { Device } from '../types/device';
 import { useFarm } from '../context/FarmContext';
 import DeviceFormModal from '../components/DeviceFormModal';
 import type { DeviceFormData } from '../api/deviceService';
-import { useApiCall } from '../hooks/useApiCall'; // ✅ THÊM
+import { useApiCall } from '../hooks/useApiCall';
+import { DEVICE_STATUS, DEVICE_STATE, getDeviceTypeLabel } from '../constants/device';
+import { SUCCESS_MESSAGES } from '../constants/messages';
+import { useDebounce } from '../hooks/useDebounce';
 
 const { Title } = Typography;
 
@@ -18,31 +21,31 @@ const DevicesPage: React.FC = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingDevice, setEditingDevice] = useState<Device | null>(null);
     const [controllingDevices, setControllingDevices] = useState<Set<string>>(new Set());
+    const [searchText, setSearchText] = useState('');
+    const debouncedSearchText = useDebounce(searchText, 300);
 
-    // ✅ THÊM: Sử dụng custom hook
     const { loading, execute: fetchDevicesApi } = useApiCall<Device[]>({
         onSuccess: (data) => setDevices(data)
     });
 
     const { loading: formLoading, execute: saveDeviceApi } = useApiCall({
         showSuccessMessage: true,
-        onSuccess: () => {
-            fetchDevices();
-            handleCancel();
-        }
     });
 
     const { execute: deleteDeviceApi } = useApiCall({
-        successMessage: 'Xóa thiết bị thành công!',
+        successMessage: SUCCESS_MESSAGES.DEVICE_DELETED,
         showSuccessMessage: true,
-        onSuccess: fetchDevices
     });
 
-    const fetchDevices = () => {
-        fetchDevicesApi(async () => {
-            const response = await getDevicesByFarm(farmId);
-            return response.data.data;
-        });
+    const fetchDevices = async () => {
+        try {
+            await fetchDevicesApi(async () => {
+                const response = await getDevicesByFarm(farmId);
+                return response.data.data;
+            });
+        } catch (error) {
+            console.error('Failed to fetch devices:', error);
+        }
     };
 
     useEffect(() => {
@@ -60,25 +63,36 @@ const DevicesPage: React.FC = () => {
     };
 
     const handleSubmit = async (values: DeviceFormData) => {
-        saveDeviceApi(async () => {
-            if (editingDevice) {
-                await updateDevice(editingDevice.id, values);
-                return { successMessage: 'Cập nhật thiết bị thành công!' };
-            } else {
-                await createDevice(farmId, values);
-                return { successMessage: 'Thêm thiết bị thành công!' };
-            }
-        });
+        try {
+            await saveDeviceApi(async () => {
+                if (editingDevice) {
+                    await updateDevice(editingDevice.id, values);
+                    message.success(SUCCESS_MESSAGES.DEVICE_UPDATED);
+                } else {
+                    await createDevice(farmId, values);
+                    message.success(SUCCESS_MESSAGES.DEVICE_CREATED);
+                }
+            });
+            handleCancel();
+            fetchDevices();
+        } catch (error) {
+            console.error('Failed to save device:', error);
+        }
     };
 
     const handleDelete = async (id: number) => {
-        deleteDeviceApi(() => deleteDevice(id));
+        try {
+            await deleteDeviceApi(() => deleteDevice(id));
+            fetchDevices();
+        } catch (error) {
+            console.error('Failed to delete device:', error);
+        }
     };
 
     const handleControl = async (deviceId: string, action: 'turn_on' | 'turn_off') => {
         const device = devices.find(d => d.deviceId === deviceId);
 
-        if (device?.status === 'OFFLINE') {
+        if (device?.status === DEVICE_STATUS.OFFLINE) {
             Modal.confirm({
                 title: '⚠️ Thiết bị đang Offline',
                 content: 'Thiết bị hiện không kết nối. Lệnh sẽ được gửi khi thiết bị online. Tiếp tục?',
@@ -95,11 +109,13 @@ const DevicesPage: React.FC = () => {
     const executeControl = async (deviceId: string, action: 'turn_on' | 'turn_off') => {
         setControllingDevices(prev => new Set(prev).add(deviceId));
 
+        const newState = action === 'turn_on' ? DEVICE_STATE.ON : DEVICE_STATE.OFF;
+
         // Optimistic update
         setDevices(prevDevices =>
             prevDevices.map(d =>
                 d.deviceId === deviceId
-                    ? { ...d, currentState: action === 'turn_on' ? 'ON' : 'OFF' }
+                    ? { ...d, currentState: newState }
                     : d
             )
         );
@@ -110,10 +126,11 @@ const DevicesPage: React.FC = () => {
             setTimeout(fetchDevices, 1000);
         } catch (error) {
             // Rollback
+            const rollbackState = action === 'turn_on' ? DEVICE_STATE.OFF : DEVICE_STATE.ON;
             setDevices(prevDevices =>
                 prevDevices.map(d =>
                     d.deviceId === deviceId
-                        ? { ...d, currentState: action === 'turn_on' ? 'OFF' : 'ON' }
+                        ? { ...d, currentState: rollbackState }
                         : d
                 )
             );
@@ -125,6 +142,17 @@ const DevicesPage: React.FC = () => {
             });
         }
     };
+
+    // Filter devices based on debounced search
+    const filteredDevices = useMemo(() => {
+        if (!debouncedSearchText) return devices;
+        
+        const lowerSearch = debouncedSearchText.toLowerCase();
+        return devices.filter(d => 
+            d.name.toLowerCase().includes(lowerSearch) ||
+            d.deviceId.toLowerCase().includes(lowerSearch)
+        );
+    }, [devices, debouncedSearchText]);
 
     const columns = [
         {
@@ -144,17 +172,7 @@ const DevicesPage: React.FC = () => {
             dataIndex: 'type',
             key: 'type',
             width: 180,
-            render: (type: string) => {
-                const typeMap: Record<string, string> = {
-                    'SENSOR_DHT22': 'Cảm biến DHT22',
-                    'SENSOR_SOIL_MOISTURE': 'Cảm biến Độ ẩm đất',
-                    'SENSOR_LIGHT': 'Cảm biến Ánh sáng',
-                    'SENSOR_PH': 'Cảm biến pH',
-                    'ACTUATOR_PUMP': 'Máy bơm',
-                    'ACTUATOR_FAN': 'Quạt',
-                };
-                return typeMap[type] || type;
-            },
+            render: (type: string) => getDeviceTypeLabel(type),
         },
         {
             title: 'Trạng thái',
@@ -162,12 +180,12 @@ const DevicesPage: React.FC = () => {
             width: 160,
             render: (_: any, record: Device) => (
                 <Space direction="vertical" size="small">
-                    <Tag color={record.status === 'ONLINE' ? 'green' : 'red'}>
-                        {record.status === 'ONLINE' ? '🟢 Online' : '🔴 Offline'}
+                    <Tag color={record.status === DEVICE_STATUS.ONLINE ? 'green' : 'red'}>
+                        {record.status === DEVICE_STATUS.ONLINE ? '🟢 Online' : '🔴 Offline'}
                     </Tag>
                     {record.type.startsWith('ACTUATOR') && record.currentState && (
-                        <Tag color={record.currentState === 'ON' ? 'processing' : 'default'}>
-                            {record.currentState === 'ON' ? '⚡ Đang bật' : '⚪ Đang tắt'}
+                        <Tag color={record.currentState === DEVICE_STATE.ON ? 'processing' : 'default'}>
+                            {record.currentState === DEVICE_STATE.ON ? '⚡ Đang bật' : '⚪ Đang tắt'}
                         </Tag>
                     )}
                 </Space>
@@ -190,8 +208,8 @@ const DevicesPage: React.FC = () => {
                 }
 
                 const isLoading = controllingDevices.has(record.deviceId);
-                const isOffline = record.status === 'OFFLINE';
-                const isOn = record.currentState === 'ON';
+                const isOffline = record.status === DEVICE_STATUS.OFFLINE;
+                const isOn = record.currentState === DEVICE_STATE.ON;
 
                 return (
                     <Space direction="vertical" size="small">
@@ -256,23 +274,36 @@ const DevicesPage: React.FC = () => {
     return (
         <div style={{ padding: '24px' }}>
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Title level={2} style={{ margin: 0 }}>Quản lý Thiết bị</Title>
-                    <Space>
-                        <Button icon={<SyncOutlined />} onClick={fetchDevices} loading={loading}>
-                            Làm mới
-                        </Button>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
-                            Thêm thiết bị
-                        </Button>
+                <div style={{ marginBottom: 16 }}>
+                    <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                        <Title level={2} style={{ margin: 0 }}>Quản lý Thiết bị</Title>
+                        <Space>
+                            <Input
+                                placeholder="Tìm kiếm thiết bị..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{ width: 250 }}
+                                allowClear
+                            />
+                            <Button icon={<SyncOutlined />} onClick={fetchDevices} loading={loading}>
+                                Làm mới
+                            </Button>
+                            <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
+                                Thêm thiết bị
+                            </Button>
+                        </Space>
                     </Space>
                 </div>
                 <Table
                     columns={columns}
-                    dataSource={devices}
+                    dataSource={filteredDevices}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `Tổng ${total} thiết bị` }}
+                    pagination={{ 
+                        pageSize: 10, 
+                        showSizeChanger: true, 
+                        showTotal: (total) => `Tổng ${total} thiết bị` 
+                    }}
                     scroll={{ x: 1200 }}
                 />
             </Card>

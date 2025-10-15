@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, Select, Button } from 'antd';
 import type { DeviceFormData } from '../api/deviceService';
-import type { Device } from '../types/device';
+import { DEVICE_TYPES } from '../constants/device'; // ✅ THÊM
 
 interface Props {
     visible: boolean;
@@ -70,12 +70,12 @@ const DeviceFormModal: React.FC<Props> = ({ visible, onClose, onSubmit, initialD
                 </Form.Item>
                 <Form.Item name="type" label="Loại thiết bị" rules={[{ required: true, message: 'Vui lòng chọn loại thiết bị!' }]}>
                     <Select placeholder="Chọn loại">
-                        <Option value="SENSOR_DHT22">Cảm biến Nhiệt độ & Độ ẩm (DHT22)</Option>
-                        <Option value="SENSOR_SOIL_MOISTURE">Cảm biến Độ ẩm đất</Option>
-                        <Option value="SENSOR_LIGHT">Cảm biến Ánh sáng</Option>
-                        <Option value="SENSOR_PH">Cảm biến pH</Option>
-                        <Option value="ACTUATOR_PUMP">Máy bơm</Option>
-                        <Option value="ACTUATOR_FAN">Quạt</Option>
+                        {/* ✅ SỬA: Dùng constants */}
+                        {Object.values(DEVICE_TYPES).map(type => (
+                            <Option key={type.value} value={type.value}>
+                                {type.label}
+                            </Option>
+                        ))}
                     </Select>
                 </Form.Item>
                 <Form.Item name="description" label="Mô tả">

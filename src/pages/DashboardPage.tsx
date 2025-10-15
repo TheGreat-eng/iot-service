@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Statistic, Spin, Alert, Typography, Tabs, message, Result, Button, Select } from 'antd';
 import { Thermometer, Droplet, Sun, Wifi, BarChart3, Beaker } from 'lucide-react';
@@ -14,11 +14,25 @@ import type { Device } from '../types/device';
 const { Title } = Typography;
 const { Option } = Select;
 
+// ✅ THÊM: Memoized Statistics Card Component
+const StatsCard = React.memo<{ title: string; value: number; icon: React.ReactNode; suffix?: string; precision?: number }>(
+    ({ title, value, icon, suffix, precision }) => (
+        <Card hoverable style={{ height: '100%' }}>
+            <Statistic
+                title={title}
+                value={value}
+                precision={precision}
+                prefix={icon}
+                suffix={suffix}
+            />
+        </Card>
+    )
+);
+
 const DashboardPage: React.FC = () => {
     const { farmId, isLoadingFarm } = useFarm();
     const navigate = useNavigate();
 
-    // ✅ KHAI BÁO TẤT CẢ STATE TRƯỚC
     const [summary, setSummary] = useState<FarmSummary | null>(null);
     const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
     const [activeChart, setActiveChart] = useState<'env' | 'soil'>('env');
@@ -30,12 +44,28 @@ const DashboardPage: React.FC = () => {
     const [selectedSoilDevice, setSelectedSoilDevice] = useState<string | null>(null);
     const [selectedPHDevice, setSelectedPHDevice] = useState<string | null>(null);
 
+    // ✅ THÊM: Memoize filtered devices
+    const envDevices = useMemo(() => 
+        devices.filter(d => d.type === 'SENSOR_DHT22'), 
+        [devices]
+    );
+    
+    const soilDevices = useMemo(() => 
+        devices.filter(d => d.type === 'SENSOR_SOIL_MOISTURE'), 
+        [devices]
+    );
+    
+    const phDevices = useMemo(() => 
+        devices.filter(d => d.type === 'SENSOR_PH'), 
+        [devices]
+    );
+
     // ✅ TẤT CẢ useEffect Ở ĐÂY
     useEffect(() => {
         let isMounted = true;
 
         const fetchData = async () => {
-            if (!farmId) return; // ✅ THÊM: Chỉ return trong async function
+            if (!farmId) return;
 
             try {
                 setLoading(true);
@@ -73,13 +103,62 @@ const DashboardPage: React.FC = () => {
         return () => { isMounted = false; };
     }, [farmId]);
 
+    // ✅ SỬA: Dùng useCallback cho fetchChartData
+    const fetchChartData = useCallback(async (chartType: 'env' | 'soil') => {
+        setChartLoading(true);
+        try {
+            let responseData: ChartDataPoint[] = [];
+            if (chartType === 'env') {
+                if (!selectedEnvDevice) {
+                    message.warning('Chưa có cảm biến DHT22 nào trong farm này');
+                    return;
+                }
+                const [tempRes, humidityRes] = await Promise.all([
+                    api.get(`/devices/${selectedEnvDevice}/data/aggregated?field=temperature&window=10m`),
+                    api.get(`/devices/${selectedEnvDevice}/data/aggregated?field=humidity&window=10m`),
+                ]);
+                responseData = tempRes.data.data.map((tempPoint: any) => {
+                    const humidityPoint = humidityRes.data.data.find((h: any) => h.timestamp === tempPoint.timestamp);
+                    return {
+                        time: new Date(tempPoint.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        temperature: tempPoint.avgValue ? parseFloat(tempPoint.avgValue.toFixed(1)) : undefined,
+                        humidity: humidityPoint?.avgValue ? parseFloat(humidityPoint.avgValue.toFixed(1)) : undefined,
+                    };
+                });
+            } else if (chartType === 'soil') {
+                if (!selectedSoilDevice || !selectedPHDevice) {
+                    message.warning('Chưa có đủ cảm biến đất và pH trong farm này');
+                    return;
+                }
+                const [soilMoistureRes, soilPHRes] = await Promise.all([
+                    api.get(`/devices/${selectedSoilDevice}/data/aggregated?field=soil_moisture&window=10m`),
+                    api.get(`/devices/${selectedPHDevice}/data/aggregated?field=soilPH&window=10m`),
+                ]);
+                responseData = soilMoistureRes.data.data.map((soilPoint: any) => {
+                    const phPoint = soilPHRes.data.data.find((p: any) => p.timestamp === soilPoint.timestamp);
+                    return {
+                        time: new Date(soilPoint.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        soilMoisture: soilPoint.avgValue ? parseFloat(soilPoint.avgValue.toFixed(1)) : undefined,
+                        soilPH: phPoint?.avgValue ? parseFloat(phPoint.avgValue.toFixed(2)) : undefined,
+                    };
+                });
+            }
+            setChartData(responseData);
+        } catch (err) {
+            console.error(`Failed to fetch chart data for ${chartType}:`, err);
+            message.error(`Không thể tải dữ liệu ${chartType === 'env' ? 'môi trường' : 'đất'}`);
+        } finally {
+            setChartLoading(false);
+        }
+    }, [selectedEnvDevice, selectedSoilDevice, selectedPHDevice]);
+
     useEffect(() => {
         if (activeChart === 'env' && selectedEnvDevice) {
             fetchChartData('env');
         } else if (activeChart === 'soil' && selectedSoilDevice && selectedPHDevice) {
             fetchChartData('soil');
         }
-    }, [selectedEnvDevice, selectedSoilDevice, selectedPHDevice, activeChart]); // ✅ THÊM activeChart
+    }, [selectedEnvDevice, selectedSoilDevice, selectedPHDevice, activeChart, fetchChartData]);
 
     useEffect(() => {
         if (farmId === null) return;
@@ -87,9 +166,14 @@ const DashboardPage: React.FC = () => {
         const client = new Client({
             webSocketFactory: () => new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/websocket`),
             reconnectDelay: 5000,
+            heartbeatIncoming: 10000, // ✅ THÊM
+            heartbeatOutgoing: 10000, // ✅ THÊM
             onWebSocketError: (error) => {
                 console.error('WebSocket error:', error);
                 message.error('Mất kết nối real-time. Đang thử kết nối lại...');
+            },
+            onWebSocketClose: () => { // ✅ THÊM
+                console.warn('WebSocket connection closed');
             },
         });
 
@@ -155,60 +239,69 @@ const DashboardPage: React.FC = () => {
         };
     }, [farmId]);
 
-    // ✅ HÀM fetchChartData
-    const fetchChartData = async (chartType: 'env' | 'soil') => {
-        setChartLoading(true);
-        try {
-            let responseData: ChartDataPoint[] = [];
-            if (chartType === 'env') {
-                if (!selectedEnvDevice) {
-                    message.warning('Chưa có cảm biến DHT22 nào trong farm này');
-                    return;
-                }
-                const [tempRes, humidityRes] = await Promise.all([
-                    api.get(`/devices/${selectedEnvDevice}/data/aggregated?field=temperature&window=10m`),
-                    api.get(`/devices/${selectedEnvDevice}/data/aggregated?field=humidity&window=10m`),
-                ]);
-                responseData = tempRes.data.data.map((tempPoint: any) => {
-                    const humidityPoint = humidityRes.data.data.find((h: any) => h.timestamp === tempPoint.timestamp);
-                    return {
-                        time: new Date(tempPoint.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        temperature: tempPoint.avgValue ? parseFloat(tempPoint.avgValue.toFixed(1)) : undefined,
-                        humidity: humidityPoint?.avgValue ? parseFloat(humidityPoint.avgValue.toFixed(1)) : undefined,
-                    };
-                });
-            } else if (chartType === 'soil') {
-                if (!selectedSoilDevice || !selectedPHDevice) {
-                    message.warning('Chưa có đủ cảm biến đất và pH trong farm này');
-                    return;
-                }
-                const [soilMoistureRes, soilPHRes] = await Promise.all([
-                    api.get(`/devices/${selectedSoilDevice}/data/aggregated?field=soil_moisture&window=10m`),
-                    api.get(`/devices/${selectedPHDevice}/data/aggregated?field=soilPH&window=10m`),
-                ]);
-                responseData = soilMoistureRes.data.data.map((soilPoint: any) => {
-                    const phPoint = soilPHRes.data.data.find((p: any) => p.timestamp === soilPoint.timestamp);
-                    return {
-                        time: new Date(soilPoint.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        soilMoisture: soilPoint.avgValue ? parseFloat(soilPoint.avgValue.toFixed(1)) : undefined,
-                        soilPH: phPoint?.avgValue ? parseFloat(phPoint.avgValue.toFixed(2)) : undefined,
-                    };
-                });
-            }
-            setChartData(responseData);
-        } catch (err) {
-            console.error(`Failed to fetch chart data for ${chartType}:`, err);
-            message.error(`Không thể tải dữ liệu ${chartType === 'env' ? 'môi trường' : 'đất'}`);
-        } finally {
-            setChartLoading(false);
-        }
-    };
-
-    const handleTabChange = (key: string) => {
+    const handleTabChange = useCallback((key: string) => {
         const chartType = key as 'env' | 'soil';
         setActiveChart(chartType);
         fetchChartData(chartType);
-    };
+    }, [fetchChartData]);
+
+    // ✅ THÊM: Memoize statistics cards
+    const statsCards = useMemo(() => (
+        <Row gutter={[16, 16]}>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Thiết bị Online"
+                    value={summary?.onlineDevices ?? 0}
+                    icon={<Wifi color="green" size={20} />}
+                    suffix={`/ ${summary?.totalDevices ?? 0}`}
+                />
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Nhiệt độ TB"
+                    value={summary?.averageEnvironment?.avgTemperature ?? 0}
+                    precision={1}
+                    icon={<Thermometer color="#ff4d4f" size={20} />}
+                    suffix="°C"
+                />
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Độ ẩm KK"
+                    value={summary?.averageEnvironment?.avgHumidity ?? 0}
+                    precision={1}
+                    icon={<Droplet color="#1677ff" size={20} />}
+                    suffix="%"
+                />
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Độ ẩm Đất"
+                    value={summary?.averageEnvironment?.avgSoilMoisture ?? 0}
+                    precision={1}
+                    icon={<BarChart3 color="#82ca9d" size={20} />}
+                    suffix="%"
+                />
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Độ pH Đất"
+                    value={summary?.averageEnvironment?.avgSoilPH ?? 0}
+                    precision={2}
+                    icon={<Beaker color="#ffc658" size={20} />}
+                />
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={12} xl={8}>
+                <StatsCard
+                    title="Ánh sáng TB"
+                    value={summary?.averageEnvironment?.avgLightIntensity ?? 0}
+                    precision={0}
+                    icon={<Sun color="#faad14" size={20} />}
+                    suffix=" lux"
+                />
+            </Col>
+        </Row>
+    ), [summary]);
 
     const chartComponent = useMemo(() => {
         if (activeChart === 'env') {
@@ -218,10 +311,10 @@ const DashboardPage: React.FC = () => {
                         <span style={{ marginRight: 8 }}>Chọn cảm biến:</span>
                         <Select
                             value={selectedEnvDevice}
-                            onChange={(value) => setSelectedEnvDevice(value)}
+                            onChange={setSelectedEnvDevice}
                             style={{ width: 200 }}
                         >
-                            {devices.filter(d => d.type === 'SENSOR_DHT22').map(d => (
+                            {envDevices.map(d => (
                                 <Option key={d.deviceId} value={d.deviceId}>{d.name} ({d.deviceId})</Option>
                             ))}
                         </Select>
@@ -248,20 +341,20 @@ const DashboardPage: React.FC = () => {
                         <span style={{ marginRight: 8 }}>Cảm biến độ ẩm đất:</span>
                         <Select
                             value={selectedSoilDevice}
-                            onChange={(value) => setSelectedSoilDevice(value)}
+                            onChange={setSelectedSoilDevice}
                             style={{ width: 200, marginRight: 16 }}
                         >
-                            {devices.filter(d => d.type === 'SENSOR_SOIL_MOISTURE').map(d => (
+                            {soilDevices.map(d => (
                                 <Option key={d.deviceId} value={d.deviceId}>{d.name} ({d.deviceId})</Option>
                             ))}
                         </Select>
                         <span style={{ marginRight: 8 }}>Cảm biến pH:</span>
                         <Select
                             value={selectedPHDevice}
-                            onChange={(value) => setSelectedPHDevice(value)}
+                            onChange={setSelectedPHDevice}
                             style={{ width: 200 }}
                         >
-                            {devices.filter(d => d.type === 'SENSOR_PH').map(d => (
+                            {phDevices.map(d => (
                                 <Option key={d.deviceId} value={d.deviceId}>{d.name} ({d.deviceId})</Option>
                             ))}
                         </Select>
@@ -282,7 +375,7 @@ const DashboardPage: React.FC = () => {
             );
         }
         return null;
-    }, [chartData, activeChart, selectedEnvDevice, selectedSoilDevice, selectedPHDevice, devices]);
+    }, [chartData, activeChart, selectedEnvDevice, selectedSoilDevice, selectedPHDevice, envDevices, soilDevices, phDevices]);
 
     // ✅ EARLY RETURNS SAU TẤT CẢ HOOKS
     if (isLoadingFarm) {
@@ -326,72 +419,7 @@ const DashboardPage: React.FC = () => {
 
             <Row gutter={[16, 16]}>
                 <Col xs={24} lg={16}>
-                    <Row gutter={[16, 16]}>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Thiết bị Online"
-                                    value={summary?.onlineDevices ?? 0}
-                                    prefix={<Wifi color="green" size={20} />}
-                                    suffix={`/ ${summary?.totalDevices ?? 0}`}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Nhiệt độ TB"
-                                    value={summary?.averageEnvironment?.avgTemperature ?? 0}
-                                    precision={1}
-                                    prefix={<Thermometer color="#ff4d4f" size={20} />}
-                                    suffix="°C"
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Độ ẩm KK"
-                                    value={summary?.averageEnvironment?.avgHumidity ?? 0}
-                                    precision={1}
-                                    prefix={<Droplet color="#1677ff" size={20} />}
-                                    suffix="%"
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Độ ẩm Đất"
-                                    value={summary?.averageEnvironment?.avgSoilMoisture ?? 0}
-                                    precision={1}
-                                    prefix={<BarChart3 color="#82ca9d" size={20} />}
-                                    suffix="%"
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Độ pH Đất"
-                                    value={summary?.averageEnvironment?.avgSoilPH ?? 0}
-                                    precision={2}
-                                    prefix={<Beaker color="#ffc658" size={20} />}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12} sm={12} md={8} lg={12} xl={8}>
-                            <Card hoverable style={{ height: '100%' }}>
-                                <Statistic
-                                    title="Ánh sáng TB"
-                                    value={summary?.averageEnvironment?.avgLightIntensity ?? 0}
-                                    precision={0}
-                                    prefix={<Sun color="#faad14" size={20} />}
-                                    suffix=" lux"
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
+                    {statsCards}
 
                     <Card style={{ marginTop: '24px' }} title="Biểu đồ theo dõi">
                         <Tabs

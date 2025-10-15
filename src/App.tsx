@@ -20,8 +20,14 @@ const CreateRulePage = lazy(() => import('./pages/CreateRulePage')); // ✅ THÊ
 const EditRulePage = lazy(() => import('./pages/EditRulePage')); // ✅ THÊM
 
 const LoadingFallback = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-    <Spin size="large" tip="Đang tải..." />
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    minHeight: '100vh' 
+  }}>
+    {/* ✅ BỎ tip prop */}
+    <Spin size="large" />
   </div>
 );
 
