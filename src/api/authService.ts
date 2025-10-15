@@ -4,9 +4,12 @@ import type { RegisterRequest } from '../types/auth';
 
 const API_URL = import.meta.env.VITE_API_URL + '/auth';
 
-// ✅ SỬA: Nhận username và password trực tiếp
+// ✅ SỬA: Gửi email thay vì username
 export const login = (username: string, password: string) => {
-    return axios.post(`${API_URL}/login`, { username, password });
+    return axios.post(`${API_URL}/login`, { 
+        email: username,  // ✅ Backend đang đợi "email"
+        password 
+    });
 };
 
 export const register = (userInfo: RegisterRequest) => {

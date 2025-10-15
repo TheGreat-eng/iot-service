@@ -10,6 +10,8 @@ import { useFarm } from '../context/FarmContext';
 import type { FarmSummary, ChartDataPoint } from '../types/dashboard';
 import { getDevicesByFarm } from '../api/deviceService';
 import type { Device } from '../types/device';
+import { DashboardSkeleton } from '../components/LoadingSkeleton'; // ✅ THÊM
+import type { SensorDataMessage } from '../types/websocket'; // ✅ THÊM
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -163,16 +165,25 @@ const DashboardPage: React.FC = () => {
     useEffect(() => {
         if (farmId === null) return;
 
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
         const client = new Client({
             webSocketFactory: () => new WebSocket(`${import.meta.env.VITE_WS_URL}/ws/websocket`),
             reconnectDelay: 5000,
-            heartbeatIncoming: 10000, // ✅ THÊM
-            heartbeatOutgoing: 10000, // ✅ THÊM
+            heartbeatIncoming: 10000,
+            heartbeatOutgoing: 10000,
             onWebSocketError: (error) => {
                 console.error('WebSocket error:', error);
-                message.error('Mất kết nối real-time. Đang thử kết nối lại...');
+                reconnectAttempts++;
+                
+                if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    message.error('Mất kết nối real-time. Vui lòng tải lại trang.');
+                } else {
+                    message.warning(`Mất kết nối real-time. Đang thử kết nối lại... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+                }
             },
-            onWebSocketClose: () => { // ✅ THÊM
+            onWebSocketClose: () => {
                 console.warn('WebSocket connection closed');
             },
         });
@@ -182,11 +193,12 @@ const DashboardPage: React.FC = () => {
         client.onConnect = () => {
             console.log('✅ WebSocket/STOMP Connected!');
             isConnected = true;
+            reconnectAttempts = 0; // ✅ Reset counter khi connect thành công
 
             client.subscribe(`/topic/farm/${farmId}/sensor-data`, (msg) => {
                 if (!isConnected) return;
                 try {
-                    const newData = JSON.parse(msg.body);
+                    const newData: SensorDataMessage = JSON.parse(msg.body); // ✅ Type-safe
                     console.log('📬 Received real-time data:', newData);
 
                     setSummary((prevSummary) => {
@@ -225,7 +237,6 @@ const DashboardPage: React.FC = () => {
         client.onStompError = (frame) => {
             console.error('Broker reported error: ' + frame.headers['message']);
             console.error('Additional details: ' + frame.body);
-            message.error('Lỗi STOMP. Vui lòng tải lại trang.');
         };
 
         client.activate();
@@ -402,11 +413,7 @@ const DashboardPage: React.FC = () => {
     }
 
     if (loading && !summary) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-                <Spin size="large" />
-            </div>
-        );
+        return <DashboardSkeleton />; // ✅ Thay Spin
     }
 
     if (error) {

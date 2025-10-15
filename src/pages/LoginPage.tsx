@@ -1,11 +1,11 @@
 // src/pages/LoginPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/authService';
-import { setAuthData } from '../utils/auth'; // ✅ THÊM
+import { setAuthData, isAuthenticated, clearAuthData, getUserFromToken } from '../utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -13,24 +13,52 @@ const LoginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    useEffect(() => {
+        clearAuthData();
+        if (isAuthenticated()) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [navigate]);
+
     const onFinish = async (values: { username: string; password: string }) => {
         setLoading(true);
         try {
             const response = await login(values.username, values.password);
+            
+            console.log('🔍 Full response:', response.data);
+
+            // ✅ SỬA: Backend có thể chỉ trả về token
             const { token, user } = response.data;
 
-            // ✅ SỬA: Dùng helper function
-            setAuthData(token, user);
-
-            message.success('Đăng nhập thành công!');
-            navigate('/dashboard');
-        } catch (error: any) {
-            console.error('Login failed:', error);
-            // ✅ Lỗi đã được xử lý trong axios interceptor
-            // Chỉ cần hiển thị message cụ thể nếu cần
-            if (error.response?.status === 401) {
-                message.error('Tên đăng nhập hoặc mật khẩu không đúng');
+            // ✅ Nếu không có user, decode từ token
+            let userInfo = user;
+            if (!userInfo && token) {
+                const decoded = getUserFromToken(token);
+                if (decoded) {
+                    userInfo = {
+                        userId: decoded.userId,
+                        username: decoded.username || values.username,
+                        email: values.username, // Email chính là username
+                        roles: decoded.roles || ['FARMER']
+                    };
+                }
             }
+
+            console.log('✅ Saving token:', token);
+            console.log('✅ Saving user:', userInfo);
+
+            setAuthData(token, userInfo);
+            message.success('Đăng nhập thành công!');
+
+            setTimeout(() => {
+                navigate('/dashboard', { replace: true });
+            }, 100);
+        } catch (error: any) {
+            console.error('❌ Login failed:', error);
+            console.error('❌ Response:', error.response?.data);
+            
+            const errorMsg = error.response?.data?.message || 'Đăng nhập thất bại';
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -44,13 +72,7 @@ const LoginPage: React.FC = () => {
             minHeight: '100vh',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
         }}>
-            <Card
-                style={{
-                    width: 400,
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    borderRadius: '8px'
-                }}
-            >
+            <Card style={{ width: 400, boxShadow: '0 4px 6px rgba(0,0,0,0.1)', borderRadius: '8px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                     <Title level={2} style={{ color: '#667eea', marginBottom: '8px' }}>
                         Smart Farm IoT
@@ -58,30 +80,22 @@ const LoginPage: React.FC = () => {
                     <Text type="secondary">Đăng nhập để tiếp tục</Text>
                 </div>
 
-                <Form
-                    name="login"
-                    onFinish={onFinish}
-                    autoComplete="off"
-                    size="large"
-                >
+                <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
                     <Form.Item
                         name="username"
-                        rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
+                        rules={[
+                            { required: true, message: 'Vui lòng nhập email!' },
+                            { type: 'email', message: 'Email không hợp lệ!' }
+                        ]}
                     >
-                        <Input
-                            prefix={<UserOutlined />}
-                            placeholder="Tên đăng nhập"
-                        />
+                        <Input prefix={<UserOutlined />} placeholder="Email" />
                     </Form.Item>
 
                     <Form.Item
                         name="password"
                         rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
                     >
-                        <Input.Password
-                            prefix={<LockOutlined />}
-                            placeholder="Mật khẩu"
-                        />
+                        <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu" />
                     </Form.Item>
 
                     <Form.Item>
@@ -102,8 +116,7 @@ const LoginPage: React.FC = () => {
 
                     <div style={{ textAlign: 'center' }}>
                         <Text type="secondary">
-                            Chưa có tài khoản?{' '}
-                            <a onClick={() => navigate('/register')}>Đăng ký ngay</a>
+                            Chưa có tài khoản? <a onClick={() => navigate('/register')}>Đăng ký ngay</a>
                         </Text>
                     </div>
                 </Form>

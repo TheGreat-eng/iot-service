@@ -1,11 +1,13 @@
 // src/App.tsx
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import LoginPage from './pages/LoginPage';
 import AppLayout from './layout/AppLayout';
 import NotFoundPage from './pages/NotFoundPage';
 import PrivateRoute from './components/PrivateRoute'; // ✅ Chỉ import, không khai báo lại
+import NetworkStatus from './components/NetworkStatus'; // ✅ THÊM
+import { isAuthenticated } from './utils/auth';
 
 // ✅ Lazy load các trang
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -20,11 +22,11 @@ const CreateRulePage = lazy(() => import('./pages/CreateRulePage')); // ✅ THÊ
 const EditRulePage = lazy(() => import('./pages/EditRulePage')); // ✅ THÊM
 
 const LoadingFallback = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    minHeight: '100vh' 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '100vh'
   }}>
     {/* ✅ BỎ tip prop */}
     <Spin size="large" />
@@ -32,8 +34,23 @@ const LoadingFallback = () => (
 );
 
 function App() {
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    // ✅ Delay ngắn để tránh flash
+    const timer = setTimeout(() => {
+      setIsCheckingAuth(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isCheckingAuth) {
+    return <LoadingFallback />;
+  }
+
   return (
     <Router>
+      <NetworkStatus /> {/* ✅ THÊM */}
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* ✅ Các trang public (không cần đăng nhập) */}

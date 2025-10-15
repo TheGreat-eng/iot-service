@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Avatar, Dropdown, Space, Select, message, type MenuProps, Spin } from 'antd';
+import { Layout, Avatar, Dropdown, Space, Select, Modal, message as antdMessage, type MenuProps, Spin } from 'antd'; // ✅ SỬA
 import { UserOutlined, LogoutOutlined, HomeOutlined, SwapOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useFarm } from '../context/FarmContext';
 import { getFarms } from '../api/farmService';
-import { clearAuthData, getUserFromToken, getAuthToken } from '../utils/auth'; // ✅ THÊM
+import { clearAuthData, getUserFromToken, getAuthToken } from '../utils/auth';
 import type { Farm } from '../types/farm';
 
 const { Header } = Layout;
@@ -20,7 +20,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
     const [farms, setFarms] = useState<Farm[]>([]);
     const [loadingFarms, setLoadingFarms] = useState(false);
 
-    // ✅ SỬA: Lấy user info từ token thay vì localStorage
     const token = getAuthToken();
     const user = token ? getUserFromToken(token) : null;
 
@@ -33,7 +32,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                 setFarms(Array.isArray(farmList) ? farmList : []);
             } catch (error) {
                 console.error('❌ Failed to fetch farms:', error);
-                // ✅ Message đã được xử lý trong axios interceptor
             } finally {
                 setLoadingFarms(false);
             }
@@ -41,11 +39,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
         fetchFarms();
     }, []);
 
+    // ✅ SỬA: Dùng Modal.confirm trực tiếp thay vì hook
     const handleLogout = () => {
-        // ✅ SỬA: Dùng helper function
-        clearAuthData();
-        message.success('Đăng xuất thành công!');
-        navigate('/login');
+        Modal.confirm({
+            title: 'Xác nhận đăng xuất',
+            content: 'Bạn có chắc muốn đăng xuất?',
+            okText: 'Đăng xuất',
+            cancelText: 'Hủy',
+            okButtonProps: { danger: true },
+            onOk: () => {
+                clearAuthData();
+                antdMessage.success('Đăng xuất thành công!');
+                navigate('/login');
+            }
+        });
     };
 
     const userMenuItems: MenuProps['items'] = [
@@ -117,7 +124,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                         onChange={(value) => {
                             const selectedFarm = farms.find(f => f.id === value);
                             setFarmId(value);
-                            message.success(`Đã chuyển sang ${selectedFarm?.name}`, 2);
+                            antdMessage.success(`Đã chuyển sang ${selectedFarm?.name}`, 2);
                         }}
                         loading={loadingFarms}
                         optionFilterProp="children"

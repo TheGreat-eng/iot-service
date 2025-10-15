@@ -77,7 +77,32 @@ export const clearAuthData = (): void => {
  */
 export const setAuthData = (token: string, user: any): void => {
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    
+    // ✅ CHỈ lưu nếu user không phải undefined/null
+    if (user && typeof user === 'object') {
+        localStorage.setItem('user', JSON.stringify(user));
+    } else {
+        console.warn('Invalid user data, not saving to localStorage');
+    }
+};
+
+/**
+ * Lấy user info từ localStorage (safe parse)
+ */
+export const getUserFromStorage = (): any | null => {
+    try {
+        const userStr = localStorage.getItem('user');
+        
+        if (!userStr || userStr === 'undefined' || userStr === 'null') {
+            return null;
+        }
+        
+        return JSON.parse(userStr);
+    } catch (error) {
+        console.error('Failed to parse user from localStorage:', error);
+        localStorage.removeItem('user'); // ✅ Xóa data lỗi
+        return null;
+    }
 };
 
 /**

@@ -86,6 +86,18 @@ const FarmsPage: React.FC = () => {
         setIsModalVisible(true);
     };
 
+    const handleSelectFarm = (farm: Farm) => {
+        const previousFarmId = farmId; // ✅ Backup
+        
+        setFarmId(farm.id); // ✅ Optimistic update
+        message.success(`Đã chuyển sang ${farm.name}`);
+        
+        // ✅ Validate phía backend (nếu cần)
+        // Nếu backend reject, rollback:
+        // setFarmId(previousFarmId);
+        // message.error('Không thể chuyển farm');
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
@@ -133,8 +145,7 @@ const FarmsPage: React.FC = () => {
                                         type={farmId === farm.id ? 'primary' : 'default'}
                                         size="small"
                                         onClick={() => {
-                                            setFarmId(farm.id);
-                                            message.success(`Đã chuyển sang ${farm.name}`);
+                                            handleSelectFarm(farm);
                                         }}
                                         disabled={farmId === farm.id}
                                     >

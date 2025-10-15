@@ -20,67 +20,68 @@ api.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         } else {
-            // ✅ Chỉ redirect nếu không phải API public
-            const publicUrls = ['/auth/login', '/auth/register', '/auth/forgot-password'];
+            // ✅ CHỈ redirect nếu KHÔNG phải trang public
+            const publicUrls = ['/auth/login', '/auth/register'];
             const isPublicUrl = publicUrls.some(url => config.url?.includes(url));
+            
+            // ✅ THÊM: Kiểm tra xem có đang ở login page không
+            const isLoginPage = window.location.pathname === '/login';
 
-            if (!isPublicUrl) {
-                console.warn('No valid token found, redirecting to login');
-                clearAuthData();
-                window.location.href = '/login';
+            // ✅ CHỈ reject nếu không phải public URL VÀ không phải login page
+            if (!isPublicUrl && !isLoginPage) {
+                console.warn('⚠️ No token, canceling request to:', config.url);
                 return Promise.reject(new Error('No authentication token'));
             }
         }
 
         return config;
     },
-    (error) => {
-        console.error('Request interceptor error:', error);
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 // ✅ Response Interceptor - Xử lý lỗi 401/403
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Network error
         if (!error.response) {
-            message.error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
+            message.error('Không thể kết nối đến máy chủ');
             return Promise.reject(error);
         }
 
         const { status, data } = error.response;
+        const isLoginPage = window.location.pathname === '/login';
 
         switch (status) {
             case 401:
-                // Token expired hoặc invalid
-                console.error('Unauthorized - Token invalid or expired');
-                clearAuthData();
-                message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-
-                // Delay để user đọc message trước khi redirect
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 1500);
+                // ✅ CHỈ redirect nếu KHÔNG phải đang ở login
+                if (!isLoginPage) {
+                    clearAuthData();
+                    message.error('Phiên đăng nhập đã hết hạn');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                }
                 break;
 
             case 403:
-                // Forbidden - Không có quyền
-                message.error('Bạn không có quyền thực hiện thao tác này.');
+                // ✅ Không hiển thị message nếu đang ở login page
+                if (!isLoginPage) {
+                    message.error('Bạn không có quyền truy cập');
+                }
                 break;
 
             case 404:
-                message.error(data?.message || 'Không tìm thấy tài nguyên.');
+                message.error(data?.message || 'Không tìm thấy tài nguyên');
                 break;
 
             case 500:
-                message.error('Lỗi máy chủ. Vui lòng thử lại sau.');
-                console.error('Server error:', data);
+                message.error('Lỗi máy chủ. Vui lòng thử lại sau');
                 break;
 
             default:
-                message.error(data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+                if (!isLoginPage) {
+                    message.error(data?.message || 'Có lỗi xảy ra');
+                }
         }
 
         return Promise.reject(error);
