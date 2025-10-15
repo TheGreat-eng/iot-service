@@ -4,6 +4,7 @@ import { UserOutlined, LogoutOutlined, HomeOutlined, SwapOutlined } from '@ant-d
 import { useNavigate } from 'react-router-dom';
 import { useFarm } from '../context/FarmContext';
 import { getFarms } from '../api/farmService';
+import { clearAuthData, getUserFromToken, getAuthToken } from '../utils/auth'; // ✅ THÊM
 import type { Farm } from '../types/farm';
 
 const { Header } = Layout;
@@ -18,9 +19,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
     const { farmId, setFarmId } = useFarm();
     const [farms, setFarms] = useState<Farm[]>([]);
     const [loadingFarms, setLoadingFarms] = useState(false);
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    // ✅ Lấy danh sách farms
+    // ✅ SỬA: Lấy user info từ token thay vì localStorage
+    const token = getAuthToken();
+    const user = token ? getUserFromToken(token) : null;
+
     useEffect(() => {
         const fetchFarms = async () => {
             setLoadingFarms(true);
@@ -30,7 +33,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                 setFarms(Array.isArray(farmList) ? farmList : []);
             } catch (error) {
                 console.error('❌ Failed to fetch farms:', error);
-                message.error('Không thể tải danh sách nông trại');
+                // ✅ Message đã được xử lý trong axios interceptor
             } finally {
                 setLoadingFarms(false);
             }
@@ -39,9 +42,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('selectedFarmId');
+        // ✅ SỬA: Dùng helper function
+        clearAuthData();
         message.success('Đăng xuất thành công!');
         navigate('/login');
     };
@@ -174,7 +176,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
                             }}>
-                                {user.fullName || user.username || 'User'}
+                                {/* ✅ SỬA: Lấy từ decoded token */}
+                                {user?.username || 'User'}
                             </span>
                         </Space>
                     </a>

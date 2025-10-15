@@ -7,41 +7,42 @@ import { getFarms, createFarm, updateFarm, deleteFarm } from '../api/farmService
 import type { Farm, FarmFormData } from '../types/farm';
 import FarmFormModal from '../components/FarmFormModal';
 import { useFarm } from '../context/FarmContext';
+import { useApiCall } from '../hooks/useApiCall'; // ✅ THÊM
 
 const { Title, Text } = Typography;
 
 const FarmsPage: React.FC = () => {
-    const { farmId, setFarmId } = useFarm(); // ✅ Thêm setFarmId
+    const { farmId, setFarmId } = useFarm();
     const [farms, setFarms] = useState<Farm[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
-    const [formLoading, setFormLoading] = useState(false);
+
+    // ✅ THÊM: Sử dụng custom hook
+    const { loading, execute: fetchFarmsApi } = useApiCall<Farm[]>({
+        onSuccess: (data) => setFarms(data),
+        errorMessage: 'Không thể tải danh sách nông trại'
+    });
+
+    const { loading: formLoading, execute: saveFarmApi } = useApiCall({
+        showSuccessMessage: true,
+        onSuccess: () => {
+            setIsModalVisible(false);
+            fetchFarms();
+        }
+    });
+
+    const { execute: deleteFarmApi } = useApiCall({
+        successMessage: 'Xóa nông trại thành công!',
+        showSuccessMessage: true,
+        onSuccess: fetchFarms
+    });
 
     const fetchFarms = () => {
-        setLoading(true);
-        getFarms()
-            .then(res => {
-                // ===> SỬA LỖI Ở ĐÂY: Kiểm tra dữ liệu trả về cẩn thận <===
-                // API getFarms có thể trả về { success: true, data: [...] }
-                // Hoặc có thể nó chỉ trả về [...] (tùy vào backend controller)
-                // Đoạn code này xử lý cả hai trường hợp
-                const farmData = res.data.data || res.data;
-
-                // Đảm bảo farmData luôn là một mảng
-                if (Array.isArray(farmData)) {
-                    setFarms(farmData);
-                } else {
-                    console.error("Dữ liệu trả về không phải là một mảng:", farmData);
-                    setFarms([]); // Set thành mảng rỗng nếu dữ liệu sai
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                message.error("Không thể tải danh sách nông trại.");
-                setFarms([]); // Set thành mảng rỗng khi có lỗi
-            })
-            .finally(() => setLoading(false));
+        fetchFarmsApi(async () => {
+            const response = await getFarms();
+            const farmData = response.data.data || response.data;
+            return Array.isArray(farmData) ? farmData : [];
+        });
     };
 
     useEffect(() => {
@@ -49,31 +50,19 @@ const FarmsPage: React.FC = () => {
     }, []);
 
     const handleFormSubmit = async (values: FarmFormData) => {
-        setFormLoading(true);
-        try {
+        saveFarmApi(async () => {
             if (editingFarm) {
                 await updateFarm(editingFarm.id, values);
-                message.success("Cập nhật nông trại thành công!");
+                return { successMessage: 'Cập nhật nông trại thành công!' };
             } else {
                 await createFarm(values);
-                message.success("Thêm nông trại thành công!");
+                return { successMessage: 'Thêm nông trại thành công!' };
             }
-            setIsModalVisible(false);
-            fetchFarms();
-        } catch (err) {
-            message.error("Thao tác thất bại!");
-        } finally {
-            setFormLoading(false);
-        }
+        });
     };
+
     const handleDelete = async (id: number) => {
-        try {
-            await deleteFarm(id);
-            message.success("Xóa nông trại thành công!");
-            fetchFarms();
-        } catch (err) {
-            message.error("Xóa thất bại!");
-        }
+        deleteFarmApi(() => deleteFarm(id));
     };
 
     const openCreateModal = () => {
@@ -86,71 +75,16 @@ const FarmsPage: React.FC = () => {
         setIsModalVisible(true);
     };
 
-    const columns = [
-        {
-            title: 'Farm ID',
-            dataIndex: 'id',  // ✅ ĐÚNG
-            key: 'id',
-        },
-        {
-            title: 'Tên nông trại',
-            dataIndex: 'name',
-            key: 'name',
-        },
-        {
-            title: 'Địa điểm',
-            dataIndex: 'location',
-            key: 'location',
-        },
-        {
-            title: 'Thiết bị online',
-            dataIndex: 'onlineDevices',
-            key: 'onlineDevices',
-        },
-        {
-            title: 'Tổng số thiết bị',
-            dataIndex: 'totalDevices',
-            key: 'totalDevices',
-        },
-        {
-            title: 'Hành động',
-            key: 'action',
-            render: (_: any, record: Farm) => (
-                <Space size="middle">
-                    <Button
-                        type={farmId === record.id ? 'primary' : 'default'}  // ✅ ĐÚNG
-                        onClick={() => {
-                            setFarmId(record.id);  // ✅ ĐÚNG
-                            message.success(`Đã chuyển sang farm: ${record.name}`);  // ✅ ĐÚNG
-                        }}
-                    >
-                        {farmId === record.id ? 'Farm hiện tại' : 'Chuyển đến'}
-                    </Button>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-                        Sửa
-                    </Button>
-                    <Popconfirm
-                        title="Xóa nông trại?"
-                        description="Hành động này sẽ xóa cả nông trại và các thiết bị bên trong."
-                        onConfirm={() => handleDelete(record.id)} // ✅ Đúng: farm.id
-                        okText="Xóa"
-                        cancelText="Hủy"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined />}>
-                            Xóa
-                        </Button>
-                    </Popconfirm>,
-                </Space>
-            ),
-        },
-    ];
-
     if (loading) {
-        return <Spin tip="Đang tải..." size="large" style={{ display: 'block', marginTop: 50 }} />;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <Spin tip="Đang tải danh sách nông trại..." size="large" />
+            </div>
+        );
     }
 
     return (
-        <div>
+        <div style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <Title level={2} style={{ margin: 0 }}>Quản lý Nông trại</Title>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
@@ -158,38 +92,87 @@ const FarmsPage: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Code này bây giờ sẽ an toàn vì `farms` không bao giờ là undefined */}
             {farms.length > 0 ? (
                 <Row gutter={[16, 16]}>
                     {farms.map(farm => (
                         <Col xs={24} sm={12} lg={8} key={farm.id}>
                             <Card
-                                title={farm.name}
+                                hoverable
+                                style={{
+                                    border: farmId === farm.id ? '2px solid #667eea' : '1px solid #f0f0f0',
+                                    transition: 'all 0.3s'
+                                }}
+                                title={
+                                    <Space>
+                                        {farm.name}
+                                        {farmId === farm.id && (
+                                            <span style={{
+                                                fontSize: '12px',
+                                                color: '#667eea',
+                                                fontWeight: 'normal'
+                                            }}>
+                                                (Đang chọn)
+                                            </span>
+                                        )}
+                                    </Space>
+                                }
                                 actions={[
+                                    <Button
+                                        key="select"
+                                        type={farmId === farm.id ? 'primary' : 'default'}
+                                        size="small"
+                                        onClick={() => {
+                                            setFarmId(farm.id);
+                                            message.success(`Đã chuyển sang ${farm.name}`);
+                                        }}
+                                        disabled={farmId === farm.id}
+                                    >
+                                        {farmId === farm.id ? 'Đang chọn' : 'Chọn'}
+                                    </Button>,
                                     <EditOutlined key="edit" onClick={() => openEditModal(farm)} />,
                                     <Popconfirm
+                                        key="delete"
                                         title="Xóa nông trại?"
-                                        description="Hành động này sẽ xóa cả nông trại và các thiết bị bên trong."
-                                        onConfirm={() => handleDelete(farm.id)} // ✅ Đúng: farm.id
+                                        description="Hành động này sẽ xóa cả thiết bị bên trong."
+                                        onConfirm={() => handleDelete(farm.id)}
                                         okText="Xóa"
                                         cancelText="Hủy"
+                                        okButtonProps={{ danger: true }}
                                     >
-                                        <DeleteOutlined key="delete" />
-                                    </Popconfirm>,
+                                        <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                                    </Popconfirm>
                                 ]}
                             >
-                                <p>{farm.description || 'Không có mô tả.'}</p>
-                                <Text type="secondary">{farm.location}</Text>
-                                {/* Có thể cần kiểm tra null cho các thuộc tính này */}
-                                <div style={{ marginTop: '16px' }}>
-                                    <WifiOutlined /> <Text>{farm.onlineDevices ?? 0} / {farm.totalDevices ?? 0} thiết bị online</Text>
-                                </div>
+                                <Space direction="vertical" style={{ width: '100%' }}>
+                                    <Text type="secondary">
+                                        📍 {farm.location || 'Chưa có vị trí'}
+                                    </Text>
+                                    <Text>{farm.description || 'Không có mô tả'}</Text>
+                                    <div style={{
+                                        marginTop: 8,
+                                        padding: '8px',
+                                        background: '#f5f5f5',
+                                        borderRadius: '4px'
+                                    }}>
+                                        <WifiOutlined style={{ color: '#52c41a' }} />
+                                        <Text style={{ marginLeft: 8 }}>
+                                            {farm.onlineDevices ?? 0} / {farm.totalDevices ?? 0} thiết bị online
+                                        </Text>
+                                    </div>
+                                </Space>
                             </Card>
                         </Col>
                     ))}
                 </Row>
             ) : (
-                <Empty description="Bạn chưa có nông trại nào. Hãy tạo một cái!" />
+                <Empty
+                    description="Bạn chưa có nông trại nào"
+                    style={{ marginTop: 64 }}
+                >
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                        Tạo nông trại đầu tiên
+                    </Button>
+                </Empty>
             )}
 
             <FarmFormModal

@@ -1,69 +1,64 @@
 // src/App.tsx
-import React, { type JSX } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { Spin } from 'antd';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
 import AppLayout from './layout/AppLayout';
-import 'antd/dist/reset.css';
-import DevicesPage from './pages/DevicesPage';
-import RulesPage from './pages/RulesPage';
-import CreateRulePage from './pages/CreateRulePage';
-import EditRulePage from './pages/EditRulePage';
-import FarmsPage from './pages/FarmsPage'; // ✅ THÊM IMPORT NÀY
-import { RobotOutlined } from '@ant-design/icons'; // Thêm icon
-import AIPredictionPage from './pages/AIPredictionPage'; // Import trang mới
-import RegisterPage from './pages/RegisterPage'; // Import trang thật
+import NotFoundPage from './pages/NotFoundPage';
+import PrivateRoute from './components/PrivateRoute'; // ✅ Chỉ import, không khai báo lại
 
+// ✅ Lazy load các trang
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const DevicesPage = lazy(() => import('./pages/DevicesPage'));
+const RulesPage = lazy(() => import('./pages/RulesPage'));
+const FarmsPage = lazy(() => import('./pages/FarmsPage'));
+const AIPredictionPage = lazy(() => import('./pages/AIPredictionPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage')); // ✅ THÊM
+const RegisterPage = lazy(() => import('./pages/RegisterPage')); // ✅ THÊM
+const CreateRulePage = lazy(() => import('./pages/CreateRulePage')); // ✅ THÊM
+const EditRulePage = lazy(() => import('./pages/EditRulePage')); // ✅ THÊM
 
-import NotFoundPage from './pages/NotFoundPage'; // Import trang 404
-
-import ChangePasswordPage from './pages/ChangePasswordPage'; // Import trang mới
-// src/App.tsx
-import ProfilePage from './pages/ProfilePage'; // Import trang thật
-
-
-
-// Component PrivateRoute để kiểm tra người dùng đã đăng nhập chưa
-const PrivateRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const isAuthenticated = !!localStorage.getItem('token');
-  return isAuthenticated ? children : <Navigate to="/login" />;
-};
-
+const LoadingFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+    <Spin size="large" tip="Đang tải..." />
+  </div>
+);
 
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Các trang không cần đăng nhập */}
-        <Route path="/login" element={<LoginPage />} />
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          {/* ✅ Các trang public (không cần đăng nhập) */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Các trang cần đăng nhập sẽ nằm trong AppLayout */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <AppLayout />
-            </PrivateRoute>
-          }
-        >
-          {/* Route mặc định khi vào trang được bảo vệ */}
-          <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="farms" element={<FarmsPage />} />
-          <Route path="devices" element={<DevicesPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="rules" element={<RulesPage />} />
-          <Route path="rules/create" element={<CreateRulePage />} />
-          <Route path="rules/edit/:ruleId" element={<EditRulePage />} />
-          <Route path="ai" element={<AIPredictionPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="change-password" element={<ChangePasswordPage />} />
-        </Route>
+          {/* ✅ Các trang protected (cần đăng nhập) */}
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <AppLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="farms" element={<FarmsPage />} />
+            <Route path="devices" element={<DevicesPage />} />
+            <Route path="rules" element={<RulesPage />} />
+            <Route path="rules/create" element={<CreateRulePage />} />
+            <Route path="rules/edit/:ruleId" element={<EditRulePage />} />
+            <Route path="ai" element={<AIPredictionPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="change-password" element={<ChangePasswordPage />} />
+          </Route>
 
-        {/* Chuyển hướng nếu vào trang không tồn tại */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* ✅ 404 Page */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
