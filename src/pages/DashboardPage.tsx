@@ -4,7 +4,6 @@ import { Thermometer, Droplet, Sun, Wifi, BarChart3, Beaker } from 'lucide-react
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../api/axiosConfig';
 import { Client } from '@stomp/stompjs';
-// ✅ SỬA: Import từ thư mục dashboard thay vì thư mục gốc
 import WeatherWidget from '../components/dashboard/WeatherWidget';
 
 const { Title } = Typography;
@@ -197,7 +196,14 @@ const DashboardPage: React.FC = () => {
     }
 
     return (
-        <div style={{ padding: '0' }}>
+        <div style={{
+            padding: '24px',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+            marginTop: '80px' // ✅ THÊM DÒNG NÀY - điều chỉnh theo chiều cao header của bạn
+        }}>
             <Title level={2} style={{ marginBottom: '24px' }}>Dashboard Tổng Quan</Title>
 
             <Row gutter={[16, 16]}>
@@ -282,8 +288,9 @@ const DashboardPage: React.FC = () => {
                     </Card>
                 </Col>
 
+                {/* Bỏ comment phần sidebar nếu cần */}
                 <Col xs={24} lg={8}>
-                    <WeatherWidget />
+                    {/* <WeatherWidget /> */}
 
                     <Card style={{ marginTop: '16px' }} title="⚠️ Cảnh báo" size="small">
                         <p style={{ margin: '8px 0' }}>• Nhiệt độ cao (35°C)</p>
