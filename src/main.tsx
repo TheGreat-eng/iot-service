@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ConfigProvider, theme as antdTheme, App as AntdApp } from 'antd' // ✅ THÊM App
+import { ConfigProvider, theme as antdTheme, App as AntdApp } from 'antd'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.tsx'
 import { FarmProvider } from './context/FarmContext'
+import { ThemeProvider, useTheme } from './context/ThemeContext' // ✅ THÊM
 import ErrorBoundary from './components/ErrorBoundary'
 
 const queryClient = new QueryClient({
@@ -15,8 +16,9 @@ const queryClient = new QueryClient({
   },
 })
 
+// ✅ Component wrapper để sử dụng useTheme
 function AppWithTheme() {
-  const [isDark, setIsDark] = useState(false);
+  const { isDark } = useTheme();
 
   return (
     <ErrorBoundary>
@@ -26,10 +28,14 @@ function AppWithTheme() {
           token: {
             colorPrimary: '#667eea',
             borderRadius: 8,
+            // ✅ Custom colors cho dark mode
+            ...(isDark && {
+              colorBgContainer: '#1f1f1f',
+              colorBgElevated: '#2a2a2a',
+            }),
           },
         }}
       >
-        {/* ✅ THÊM: Wrap trong AntdApp để dùng App.useApp() */}
         <AntdApp>
           <QueryClientProvider client={queryClient}>
             <FarmProvider>
@@ -44,6 +50,8 @@ function AppWithTheme() {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AppWithTheme />
+    <ThemeProvider>
+      <AppWithTheme />
+    </ThemeProvider>
   </React.StrictMode>,
 )

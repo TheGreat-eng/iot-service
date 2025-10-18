@@ -10,6 +10,7 @@ import {
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext'; // ✅ THÊM
 import AppHeader from './AppHeader';
 import AppFooter from './AppFooter';
 
@@ -37,6 +38,7 @@ const AppLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const { isDark } = useTheme(); // ✅ THÊM
     const {
         token: { colorBgContainer },
     } = theme.useToken();
@@ -47,10 +49,11 @@ const AppLayout: React.FC = () => {
                 collapsible
                 collapsed={collapsed}
                 onCollapse={(value) => setCollapsed(value)}
+                theme={isDark ? 'dark' : 'light'} // ✅ THÊM: Theme động
                 style={{
                     overflow: 'auto',
                     height: '100vh',
-                    position: 'fixed', // ✅ Cố định sidebar
+                    position: 'fixed',
                     left: 0,
                     top: 0,
                     bottom: 0,
@@ -61,12 +64,12 @@ const AppLayout: React.FC = () => {
                     style={{
                         height: 64,
                         margin: 16,
-                        background: 'rgba(255, 255, 255, 0.2)',
+                        background: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(102, 126, 234, 0.1)', // ✅ THÊM
                         borderRadius: '8px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#fff',
+                        color: isDark ? '#fff' : '#667eea', // ✅ THÊM
                         fontWeight: 'bold',
                         fontSize: collapsed ? '12px' : '16px',
                         transition: 'all 0.2s'
@@ -75,7 +78,7 @@ const AppLayout: React.FC = () => {
                     {collapsed ? 'SF' : 'Smart Farm'}
                 </div>
                 <Menu
-                    theme="dark"
+                    theme={isDark ? 'dark' : 'light'} // ✅ THÊM
                     selectedKeys={[location.pathname]}
                     mode="inline"
                     items={items}
@@ -83,12 +86,10 @@ const AppLayout: React.FC = () => {
                 />
             </Sider>
 
-            {/* ✅ THÊM: Layout bên phải với margin-left để tránh bị sidebar che */}
             <Layout style={{
-                marginLeft: collapsed ? 80 : 200, // ✅ Đẩy content sang phải
+                marginLeft: collapsed ? 80 : 200,
                 transition: 'margin-left 0.2s'
             }}>
-                {/* ✅ SỬA: Cố định Header */}
                 <div style={{
                     position: 'sticky',
                     top: 0,

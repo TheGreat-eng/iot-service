@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Avatar, Dropdown, Space, Select, Modal, message as antdMessage, type MenuProps, Spin } from 'antd'; // ✅ SỬA
-import { UserOutlined, LogoutOutlined, HomeOutlined, SwapOutlined } from '@ant-design/icons';
+import { Layout, Avatar, Dropdown, Space, Select, Modal, message as antdMessage, type MenuProps, Spin, Button, Tooltip } from 'antd';
+import { UserOutlined, LogoutOutlined, HomeOutlined, SwapOutlined, BulbOutlined, BulbFilled } from '@ant-design/icons'; // ✅ THÊM icons
 import { useNavigate } from 'react-router-dom';
 import { useFarm } from '../context/FarmContext';
+import { useTheme } from '../context/ThemeContext'; // ✅ THÊM
 import { getFarms } from '../api/farmService';
 import { clearAuthData, getUserFromToken, getAuthToken } from '../utils/auth';
 import type { Farm } from '../types/farm';
@@ -17,6 +18,7 @@ interface AppHeaderProps {
 const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) => {
     const navigate = useNavigate();
     const { farmId, setFarmId } = useFarm();
+    const { isDark, toggleTheme } = useTheme(); // ✅ THÊM
     const [farms, setFarms] = useState<Farm[]>([]);
     const [loadingFarms, setLoadingFarms] = useState(false);
 
@@ -39,7 +41,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
         fetchFarms();
     }, []);
 
-    // ✅ SỬA: Dùng Modal.confirm trực tiếp thay vì hook
     const handleLogout = () => {
         Modal.confirm({
             title: 'Xác nhận đăng xuất',
@@ -112,7 +113,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                 </span>
             </div>
 
-            {/* ✅ THÊM: Farm Selector + User Menu */}
+            {/* Right Section: Farm Selector + Dark Mode + User Menu */}
             <Space size="large">
                 {/* Farm Selector */}
                 <Space>
@@ -130,7 +131,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                         optionFilterProp="children"
                         showSearch
                         suffixIcon={loadingFarms ? <Spin size="small" /> : <SwapOutlined />}
-                        // ✅ SỬA: Dùng popupRender thay vì dropdownRender
                         popupRender={(menu) => (
                             <>
                                 {menu}
@@ -164,6 +164,22 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                     </Select>
                 </Space>
 
+                {/* ✅ Dark Mode Toggle */}
+                <Tooltip title={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}>
+                    <Button
+                        type="text"
+                        icon={isDark ? <BulbFilled style={{ color: '#ffd700' }} /> : <BulbOutlined />}
+                        onClick={toggleTheme}
+                        style={{
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.3s ease',
+                        }}
+                    />
+                </Tooltip>
+
                 {/* User Menu */}
                 <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
                     <a onClick={(e) => e.preventDefault()} style={{ cursor: 'pointer' }}>
@@ -177,14 +193,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                             />
                             <span style={{
                                 fontWeight: 500,
-                                color: '#333',
+                                color: isDark ? '#fff' : '#333',
                                 maxWidth: '150px',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
                             }}>
-                                {/* ✅ SỬA: Lấy từ decoded token */}
-                                {user?.username || 'User'}
+                                {user?.username || user?.email?.split('@')[0] || 'User'}
                             </span>
                         </Space>
                     </a>
