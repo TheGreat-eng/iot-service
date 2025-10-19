@@ -28,11 +28,15 @@ export const FarmProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (farmId === null) {
                 try {
+                    console.log('🔍 Auto-selecting first farm...');
                     const response = await getFarms();
                     const farmList = response.data.data || response.data;
+
                     if (Array.isArray(farmList) && farmList.length > 0) {
                         setFarmId(farmList[0].id);
-                        console.log('✅ Auto-selected farm:', farmList[0].name);
+                        console.log('✅ Auto-selected farm:', farmList[0].id, farmList[0].name);
+                    } else {
+                        console.warn('⚠️ No farms available');
                     }
                 } catch (error) {
                     console.error('❌ Failed to auto-select farm:', error);
@@ -40,16 +44,18 @@ export const FarmProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     setIsLoadingFarm(false);
                 }
             } else {
+                console.log('✅ Using saved farmId:', farmId);
                 setIsLoadingFarm(false);
             }
         };
 
         autoSelectFarm();
-    }, []); // ✅ Empty deps, chỉ chạy 1 lần
+    }, []); // ✅ Empty deps
 
     useEffect(() => {
         if (farmId !== null) {
             localStorage.setItem('selectedFarmId', farmId.toString());
+            console.log('💾 Saved farmId to localStorage:', farmId);
         } else {
             localStorage.removeItem('selectedFarmId');
         }

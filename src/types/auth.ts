@@ -10,9 +10,11 @@ export interface RegisterRequest {
     name?: string;
 }
 
-// ✅ THÊM: Interface cho Login Response
+// ✅ SỬA: Thêm refreshToken
 export interface LoginResponse {
-    token: string;
+    token?: string;          // ✅ Optional vì có thể dùng accessToken
+    accessToken?: string;    // ✅ THÊM
+    refreshToken?: string;   // ✅ THÊM
     userId: number;
     email: string;
     fullName: string;
@@ -76,11 +78,11 @@ export const getAuthToken = (): string | null => {
 export const getUserFromToken = (token: string): any | null => {
     try {
         const decoded = jwtDecode<DecodedToken>(token);
-        
+
         return {
-            userId: decoded.sub,                    
-            username: decoded.sub.split('@')[0],    
-            email: decoded.sub,                     
+            userId: decoded.sub,
+            username: decoded.sub.split('@')[0],
+            email: decoded.sub,
             roles: decoded.roles || ['FARMER']
         };
     } catch (error) {
@@ -114,7 +116,7 @@ export const clearAuthData = (): void => {
  */
 export const setAuthData = (token: string, user?: any): void => {
     localStorage.setItem('token', token);
-    
+
     if (user && typeof user === 'object') {
         localStorage.setItem('user', JSON.stringify(user));
     } else {
@@ -131,7 +133,7 @@ export const setAuthData = (token: string, user?: any): void => {
 export const getUserFromStorage = (): any | null => {
     try {
         const userStr = localStorage.getItem('user');
-        
+
         if (!userStr || userStr === 'undefined' || userStr === 'null') {
             const token = getAuthToken();
             if (token) {
@@ -139,12 +141,12 @@ export const getUserFromStorage = (): any | null => {
             }
             return null;
         }
-        
+
         return JSON.parse(userStr);
     } catch (error) {
         console.error('Failed to parse user from localStorage:', error);
         localStorage.removeItem('user');
-        
+
         const token = getAuthToken();
         if (token) {
             return getUserFromToken(token);

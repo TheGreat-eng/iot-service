@@ -1,7 +1,7 @@
 // src/pages/DevicesPage.tsx
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Table, Button, Space, Tag, Card, message, Typography, Popconfirm, Modal, Input } from 'antd';
+import { Table, Button, Space, Tag, Card, message, Typography, Popconfirm, Modal, Input, Spin, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { getDevicesByFarm, createDevice, updateDevice, deleteDevice, controlDevice } from '../api/deviceService';
 import type { Device } from '../types/device';
@@ -16,7 +16,7 @@ import { useDebounce } from '../hooks/useDebounce';
 const { Title } = Typography;
 
 const DevicesPage: React.FC = () => {
-    const { farmId } = useFarm();
+    const { farmId, isLoadingFarm } = useFarm(); // ✅ THÊM isLoadingFarm
     const [devices, setDevices] = useState<Device[]>([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingDevice, setEditingDevice] = useState<Device | null>(null);
@@ -38,19 +38,56 @@ const DevicesPage: React.FC = () => {
     });
 
     const fetchDevices = async () => {
+        if (!farmId) {
+            console.warn('⚠️ No farmId available');
+            return;
+        }
+
         try {
+            console.log('🔍 Fetching devices for farmId:', farmId);
             await fetchDevicesApi(async () => {
                 const response = await getDevicesByFarm(farmId);
+                console.log('✅ Devices loaded:', response.data.data.length);
                 return response.data.data;
             });
         } catch (error) {
-            console.error('Failed to fetch devices:', error);
+            console.error('❌ Failed to fetch devices:', error);
         }
     };
 
     useEffect(() => {
-        fetchDevices();
+        if (farmId) {
+            fetchDevices();
+        }
     }, [farmId]);
+
+    // ✅ THÊM: Early return khi đang load farm
+    if (isLoadingFarm) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <Spin size="large" tip="Đang tải nông trại..." />
+            </div>
+        );
+    }
+
+    // ✅ THÊM: Early return khi chưa có farmId
+    if (!farmId) {
+        return (
+            <div style={{ padding: '24px' }}>
+                <Alert
+                    message="Chưa chọn nông trại"
+                    description="Vui lòng chọn hoặc tạo nông trại từ menu trên để xem thiết bị."
+                    type="warning"
+                    showIcon
+                    action={
+                        <Button type="primary" onClick={() => window.location.href = '/farms'}>
+                            Đến trang Nông trại
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
 
     const showModal = (device?: Device) => {
         setEditingDevice(device || null);
@@ -146,9 +183,9 @@ const DevicesPage: React.FC = () => {
     // Filter devices based on debounced search
     const filteredDevices = useMemo(() => {
         if (!debouncedSearchText) return devices;
-        
+
         const lowerSearch = debouncedSearchText.toLowerCase();
-        return devices.filter(d => 
+        return devices.filter(d =>
             d.name.toLowerCase().includes(lowerSearch) ||
             d.deviceId.toLowerCase().includes(lowerSearch)
         );
@@ -276,7 +313,13 @@ const DevicesPage: React.FC = () => {
             <Card>
                 <div style={{ marginBottom: 16 }}>
                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                        <Title level={2} style={{ margin: 0 }}>Quản lý Thiết bị</Title>
+                        <Title level={2} style={{ margin: 0 }}>
+                            Quản lý Thiết bị
+                            {/* ✅ THÊM: Hiển thị số lượng */}
+                            <span style={{ fontSize: '14px', color: '#999', marginLeft: 8 }}>
+                                ({devices.length} thiết bị)
+                            </span>
+                        </Title>
                         <Space>
                             <Input
                                 placeholder="Tìm kiếm thiết bị..."
@@ -299,10 +342,10 @@ const DevicesPage: React.FC = () => {
                     dataSource={filteredDevices}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ 
-                        pageSize: 10, 
-                        showSizeChanger: true, 
-                        showTotal: (total) => `Tổng ${total} thiết bị` 
+                    pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Tổng ${total} thiết bị`
                     }}
                     scroll={{ x: 1200 }}
                 />

@@ -15,7 +15,10 @@ const RegisterPage: React.FC = () => {
     const onFinish = async (values: any) => {
         setLoading(true);
         try {
-            await api.post('/auth/register', values);
+            // ✅ Loại bỏ field 'confirm' trước khi gửi
+            const { confirm, ...registerData } = values;
+
+            await api.post('/auth/register', registerData);
             message.success('Đăng ký thành công! Vui lòng đăng nhập.');
             navigate('/login');
         } catch (err: any) {
@@ -43,7 +46,7 @@ const RegisterPage: React.FC = () => {
                         <Form.Item name="phone" rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}>
                             <Input prefix={<PhoneOutlined />} placeholder="Số điện thoại" />
                         </Form.Item>
-                        <Form.Item name="password" rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }, { min: 6 }]}>
+                        <Form.Item name="password" rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }, { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }]}>
                             <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu" />
                         </Form.Item>
                         <Form.Item

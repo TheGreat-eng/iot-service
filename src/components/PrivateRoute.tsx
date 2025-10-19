@@ -11,18 +11,19 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
 
     // ✅ Log để debug
     useEffect(() => {
-        console.log('PrivateRoute check:', {
+        console.log('🔍 PrivateRoute check:', {
             path: location.pathname,
-            authenticated: isAuthenticated()
+            authenticated: isAuthenticated(),
+            hasToken: !!localStorage.getItem('token')
         });
     }, [location]);
 
     if (!isAuthenticated()) {
-        console.warn('Not authenticated, redirecting to login');
-        // ✅ Lưu URL trước đó để redirect sau khi login
+        console.warn('⚠️ Not authenticated, redirecting to login');
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
+    console.log('✅ Authenticated, rendering children');
     return children;
 };
 

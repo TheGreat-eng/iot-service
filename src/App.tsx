@@ -37,8 +37,10 @@ function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // ✅ Delay ngắn để tránh flash
+    console.log('🔍 App mounted, checking auth...');
     const timer = setTimeout(() => {
+      const isAuth = isAuthenticated();
+      console.log('🔍 Auth status:', isAuth);
       setIsCheckingAuth(false);
     }, 100);
     return () => clearTimeout(timer);
@@ -53,11 +55,11 @@ function App() {
       <NetworkStatus /> {/* ✅ THÊM */}
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          {/* ✅ Các trang public (không cần đăng nhập) */}
+          {/* ✅ Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* ✅ Các trang protected (cần đăng nhập) */}
+          {/* ✅ Protected routes */}
           <Route
             path="/"
             element={

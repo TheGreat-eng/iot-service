@@ -24,34 +24,57 @@ const LoginPage: React.FC = () => {
         setLoading(true);
         try {
             const response = await login(values.username, values.password);
-            
+
             console.log('🔍 Full response:', response.data);
 
-            // ✅ SỬA: Backend trả về full user info
-            const { token, userId, email, fullName, role } = response.data;
+            // ✅ SỬA: Xử lý cả accessToken và token
+            const {
+                token,
+                accessToken,  // ✅ THÊM
+                refreshToken, // ✅ THÊM
+                userId,
+                email,
+                fullName,
+                role
+            } = response.data;
 
-            // ✅ Chuẩn hóa user object
+            // ✅ Ưu tiên accessToken nếu có, không thì dùng token
+            const authToken = accessToken || token;
+
+            if (!authToken) {
+                throw new Error('Không nhận được token từ server');
+            }
+
+            // Chuẩn hóa user object
             const userInfo = {
                 userId: userId,
-                username: email.split('@')[0], // "farmer1"
+                username: email.split('@')[0],
                 email: email,
                 fullName: fullName,
-                roles: [role], // ✅ Convert single role -> array
+                roles: [role],
             };
 
-            console.log('✅ Saving token:', token);
+            console.log('✅ Saving token:', authToken);
             console.log('✅ Saving user:', userInfo);
 
-            setAuthData(token, userInfo);
+            // ✅ Lưu cả refresh token nếu có
+            setAuthData(authToken, userInfo);
+            if (refreshToken) {
+                localStorage.setItem('refreshToken', refreshToken);
+            }
+
             message.success('Đăng nhập thành công!');
 
+            // ✅ SỬA: Tăng thời gian delay và log để debug
+            console.log('🚀 Navigating to dashboard...');
             setTimeout(() => {
                 navigate('/dashboard', { replace: true });
-            }, 100);
+            }, 500); // ✅ Tăng từ 100ms lên 500ms
+
         } catch (error: any) {
             console.error('❌ Login failed:', error);
             console.error('❌ Response:', error.response?.data);
-            
+
             const errorMsg = error.response?.data?.message || 'Đăng nhập thất bại';
             message.error(errorMsg);
         } finally {
