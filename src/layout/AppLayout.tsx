@@ -5,7 +5,8 @@ import {
     UserOutlined,
     SettingOutlined,
     BuildOutlined,
-    RobotOutlined
+    RobotOutlined,
+    HeartOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, theme } from 'antd';
@@ -13,6 +14,9 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext'; // ✅ THÊM
 import AppHeader from './AppHeader';
 import AppFooter from './AppFooter';
+// ... imports
+import { CrownOutlined } from '@ant-design/icons'; // Thêm icon
+import { hasRole, getUserFromStorage } from '../utils/auth'; // Thêm util
 
 const { Content, Sider } = Layout;
 
@@ -42,6 +46,31 @@ const AppLayout: React.FC = () => {
     const {
         token: { colorBgContainer },
     } = theme.useToken();
+
+    // VVVV--- LOGIC TẠO MENU ĐỘNG ---VVVV
+    const user = getUserFromStorage();
+    const isAdmin = user && user.roles && user.roles.includes('ADMIN');
+
+    const menuItems: MenuItem[] = [
+        getItem('Dashboard', '/dashboard', <PieChartOutlined />),
+        getItem('Dự đoán AI', '/ai', <RobotOutlined />),
+        // Thêm trang Plant Health sẽ ở đây
+        getItem('Quy tắc Tự động', '/rules', <BuildOutlined />),
+        getItem('Quản lý Nông trại', '/farms', <DesktopOutlined />),
+        getItem('Quản lý Thiết bị', '/devices', <SettingOutlined />),
+        getItem('Sức khỏe Cây trồng', '/plant-health', <HeartOutlined />), // <-- THÊM DÒNG NÀY
+        // Chỉ hiển thị menu Admin nếu là Admin
+        isAdmin && getItem('Admin Panel', 'sub_admin', <CrownOutlined />, [
+            // SỬA LẠI ĐÂY
+            getItem('Dashboard', '/admin/dashboard'),
+            getItem('Quản lý Người dùng', '/admin/users'),
+        ]),
+        getItem('Tài khoản', 'sub_user', <UserOutlined />, [
+            getItem('Thông tin cá nhân', '/profile'),
+            getItem('Đổi mật khẩu', '/change-password'),
+        ]),
+    ].filter(Boolean) as MenuItem[]; // .filter(Boolean) để loại bỏ giá trị false (khi user không phải admin)
+    // ^^^^------------------------------------^^^^
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -81,7 +110,7 @@ const AppLayout: React.FC = () => {
                     theme={isDark ? 'dark' : 'light'} // ✅ THÊM
                     selectedKeys={[location.pathname]}
                     mode="inline"
-                    items={items}
+                    items={menuItems}
                     onClick={({ key }) => navigate(key)}
                 />
             </Sider>

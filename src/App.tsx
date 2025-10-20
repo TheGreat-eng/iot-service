@@ -20,6 +20,14 @@ const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage')); // 
 const RegisterPage = lazy(() => import('./pages/RegisterPage')); // ✅ THÊM
 const CreateRulePage = lazy(() => import('./pages/CreateRulePage')); // ✅ THÊM
 const EditRulePage = lazy(() => import('./pages/EditRulePage')); // ✅ THÊM
+const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage'));
+const PlantHealthPage = lazy(() => import('./pages/PlantHealthPage'));
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
+
+
+
+
+
 
 const LoadingFallback = () => (
   <div style={{
@@ -78,6 +86,9 @@ function App() {
             <Route path="ai" element={<AIPredictionPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="change-password" element={<ChangePasswordPage />} />
+            <Route path="plant-health" element={<PlantHealthPage />} />
+            <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="admin/users" element={<UserManagementPage />} />
           </Route>
 
           {/* ✅ 404 Page */}

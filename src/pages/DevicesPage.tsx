@@ -12,6 +12,7 @@ import { useApiCall } from '../hooks/useApiCall';
 import { DEVICE_STATUS, DEVICE_STATE, getDeviceTypeLabel } from '../constants/device';
 import { SUCCESS_MESSAGES } from '../constants/messages';
 import { useDebounce } from '../hooks/useDebounce';
+import { exportDeviceDataAsCsv } from '../api/reportService';
 
 const { Title } = Typography;
 
@@ -303,6 +304,13 @@ const DevicesPage: React.FC = () => {
                             Xóa
                         </Button>
                     </Popconfirm>
+                    <Button onClick={() => {
+                        const end = new Date().toISOString();
+                        const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                        exportDeviceDataAsCsv(record.deviceId, start, end);
+                    }}>
+                        Export CSV
+                    </Button>
                 </Space>
             ),
         },

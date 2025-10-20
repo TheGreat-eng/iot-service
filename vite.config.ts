@@ -7,6 +7,11 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  // VVVV--- THÊM PHẦN NÀY ---VVVV
+  define: {
+    'global': 'window', // Cần cho thư viện STOMP
+  },
+  // ^^^^---------------------^^^^
   css: {
     preprocessorOptions: {
       less: {
@@ -14,6 +19,7 @@ export default defineConfig({
       }
     }
   },
+
   build: {
     rollupOptions: {
       output: {

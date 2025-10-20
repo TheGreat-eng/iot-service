@@ -1,4 +1,5 @@
 // src/types/device.ts
+import type { SensorDataMessage } from "./websocket"; // Import kiểu dữ liệu từ websocket
 
 export interface Device {
     id: number;
@@ -8,5 +9,7 @@ export interface Device {
     status: 'ONLINE' | 'OFFLINE' | 'ERROR';
     lastSeen: string;
     farmId: number;
-    currentState?: 'ON' | 'OFF';  // ✅ Nên thêm vào UI trong DevicesPage
+    // VVVV--- THÊM DÒNG NÀY ---VVVV
+    latestSensorData?: SensorDataMessage; // Lưu dữ liệu cảm biến mới nhất từ WebSocket
+    // ^^^^-----------------------^^^^
 }
