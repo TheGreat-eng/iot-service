@@ -2,8 +2,10 @@ import { jwtDecode } from 'jwt-decode';
 
 interface DecodedToken {
     exp: number;
-    userId: string;
-    username?: string;
+    sub: string; // Email từ JWT
+    userId?: number; // ✅ THÊM: userId riêng biệt
+    fullName?: string;
+    name?: string;
     roles?: string[];
 }
 
@@ -43,9 +45,17 @@ export const getAuthToken = (): string | null => {
 /**
  * Lấy thông tin user từ token
  */
-export const getUserFromToken = (token: string): DecodedToken | null => {
+export const getUserFromToken = (token: string): any | null => {
     try {
-        return jwtDecode<DecodedToken>(token);
+        const decoded = jwtDecode<DecodedToken>(token);
+
+        return {
+            userId: decoded.userId || decoded.sub, // ✅ SỬA: Ưu tiên userId nếu có
+            username: decoded.sub.split('@')[0],
+            email: decoded.sub,
+            fullName: decoded.fullName || decoded.name || null, // ✅ THÊM fallback
+            roles: decoded.roles || ['FARMER']
+        };
     } catch (error) {
         console.error('Failed to decode user info:', error);
         return null;
@@ -70,6 +80,12 @@ export const clearAuthData = (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('selectedFarmId');
+    localStorage.removeItem('refreshToken'); // ✅ THÊM nếu dùng
+
+    // ✅ THÊM: Dispatch event để các component biết auth đã bị clear
+    window.dispatchEvent(new Event('storage'));
+
+    sessionStorage.clear();
 };
 
 /**
@@ -77,7 +93,7 @@ export const clearAuthData = (): void => {
  */
 export const setAuthData = (token: string, user: any): void => {
     localStorage.setItem('token', token);
-    
+
     // ✅ CHỈ lưu nếu user không phải undefined/null
     if (user && typeof user === 'object') {
         localStorage.setItem('user', JSON.stringify(user));
@@ -92,15 +108,38 @@ export const setAuthData = (token: string, user: any): void => {
 export const getUserFromStorage = (): any | null => {
     try {
         const userStr = localStorage.getItem('user');
-        
+
         if (!userStr || userStr === 'undefined' || userStr === 'null') {
+            const token = getAuthToken();
+            if (token) {
+                return getUserFromToken(token);
+            }
             return null;
         }
-        
-        return JSON.parse(userStr);
+
+        const user = JSON.parse(userStr);
+
+        // ✅ THÊM: Validate user object
+        if (!user || typeof user !== 'object' || !user.email) {
+            console.warn('⚠️ Invalid user data in localStorage');
+            localStorage.removeItem('user');
+
+            const token = getAuthToken();
+            if (token) {
+                return getUserFromToken(token);
+            }
+            return null;
+        }
+
+        return user;
     } catch (error) {
         console.error('Failed to parse user from localStorage:', error);
-        localStorage.removeItem('user'); // ✅ Xóa data lỗi
+        localStorage.removeItem('user');
+
+        const token = getAuthToken();
+        if (token) {
+            return getUserFromToken(token);
+        }
         return null;
     }
 };

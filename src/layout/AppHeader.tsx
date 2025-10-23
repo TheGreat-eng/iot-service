@@ -8,6 +8,11 @@ import { getFarms } from '../api/farmService';
 import { clearAuthData, getUserFromToken, getAuthToken } from '../utils/auth';
 import type { Farm } from '../types/farm';
 
+
+// VVVV--- THÊM IMPORT NÀY ---VVVV
+import { useQueryClient } from '@tanstack/react-query';
+// ^^^^-----------------------^^^^
+
 const { Header } = Layout;
 const { Option } = Select;
 
@@ -21,6 +26,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
     const { isDark, toggleTheme } = useTheme(); // ✅ THÊM
     const [farms, setFarms] = useState<Farm[]>([]);
     const [loadingFarms, setLoadingFarms] = useState(false);
+
+    // VVVV--- LẤY QUERY CLIENT ---VVVV
+    const queryClient = useQueryClient();
+    // ^^^^------------------------^^^^
 
     const token = getAuthToken();
     const user = token ? getUserFromToken(token) : null;
@@ -49,9 +58,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
             cancelText: 'Hủy',
             okButtonProps: { danger: true },
             onOk: () => {
+                // ✅ BƯỚC 1: Reset farmId trong Context
+                setFarmId(null);
+
+                // ✅ BƯỚC 2: Clear React Query cache
+                queryClient.clear();
+                console.log('✅ React Query cache cleared.');
+
+                // ✅ BƯỚC 3: Clear auth data (bao gồm selectedFarmId)
                 clearAuthData();
+
+                // ✅ BƯỚC 4: Hiển thị thông báo
                 antdMessage.success('Đăng xuất thành công!');
-                navigate('/login');
+
+                // ✅ BƯỚC 5: Chuyển hướng VÀ FORCE RELOAD
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 300);
             }
         });
     };
@@ -199,7 +222,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ colorBgContainer = '#ffffff' }) =
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
                             }}>
-                                {user?.username || user?.email?.split('@')[0] || 'User'}
+                                {user?.username || user?.username?.split('@')[0] || 'User'}
                             </span>
                         </Space>
                     </a>

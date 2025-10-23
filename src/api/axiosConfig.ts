@@ -23,7 +23,7 @@ api.interceptors.request.use(
             // ✅ CHỈ redirect nếu KHÔNG phải trang public
             const publicUrls = ['/auth/login', '/auth/register'];
             const isPublicUrl = publicUrls.some(url => config.url?.includes(url));
-            
+
             // ✅ THÊM: Kiểm tra xem có đang ở login page không
             const isLoginPage = window.location.pathname === '/login';
 
@@ -53,9 +53,8 @@ api.interceptors.response.use(
 
         switch (status) {
             case 401:
-                // ✅ CHỈ redirect nếu KHÔNG phải đang ở login
                 if (!isLoginPage) {
-                    clearAuthData();
+                    clearAuthData(); // ✅ Sẽ trigger storage event
                     message.error('Phiên đăng nhập đã hết hạn');
                     setTimeout(() => {
                         window.location.href = '/login';

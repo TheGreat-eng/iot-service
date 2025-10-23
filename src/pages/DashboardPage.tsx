@@ -52,11 +52,29 @@ const DashboardPage: React.FC = () => {
     const soilDevices = useMemo(() => devices.filter(d => d.type === 'SENSOR_SOIL_MOISTURE'), [devices]);
     const phDevices = useMemo(() => devices.filter(d => d.type === 'SENSOR_PH'), [devices]);
 
+    // ✅ THÊM: Reset tất cả state khi farmId thay đổi
+    useEffect(() => {
+        if (farmId === null) {
+            setSummary(null);
+            setChartData([]);
+            setDevices([]);
+            setSelectedEnvDevice(undefined);
+            setSelectedSoilDevice(undefined);
+            setSelectedPHDevice(undefined);
+            setError(null);
+            setLoading(false);
+        }
+    }, [farmId]);
+
     // Effect để tải dữ liệu ban đầu
     useEffect(() => {
         let isMounted = true;
         const fetchData = async () => {
-            if (!farmId) { setLoading(false); return; }
+            if (!farmId) {
+                setLoading(false);
+                return;
+            }
+
             try {
                 setLoading(true);
                 const [devicesRes, summaryRes] = await Promise.all([
@@ -216,6 +234,14 @@ const DashboardPage: React.FC = () => {
             </div>
         );
     }, [chartData, activeChart, chartLoading, selectedEnvDevice, selectedSoilDevice, selectedPHDevice, envDevices, soilDevices, phDevices]);
+
+    useEffect(() => {
+        // ✅ THÊM: Cleanup function để reset state khi component unmount
+        return () => {
+            setChartData([]);
+            setSummary(null);
+        };
+    }, []);
 
     if (isLoadingFarm) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><Spin size="large" /></div>;
     if (!farmId) return <Result status="info" title="Chưa có nông trại" subTitle="Vui lòng tạo hoặc chọn nông trại để xem dữ liệu." extra={<Button type="primary" onClick={() => navigate('/farms')}>Quản lý Nông trại</Button>} />;

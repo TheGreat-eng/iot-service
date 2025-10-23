@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Avatar, Typography, Descriptions, Spin, Result, Button, Space } from 'antd';
 import { UserOutlined, MailOutlined, PhoneOutlined, IdcardOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getAuthToken, getUserFromStorage } from '../utils/auth';
+import { getAuthToken, getUserFromStorage, getUserFromToken, clearAuthData } from '../utils/auth'; // ✅ THÊM clearAuthData và getUserFromToken
 
 const { Title, Text } = Typography;
 
@@ -15,29 +15,41 @@ const ProfilePage: React.FC = () => {
     useEffect(() => {
         const loadUserData = () => {
             const token = getAuthToken();
-            console.log('🔍 Token:', token);
+            console.log('🔍 Checking auth token:', token ? 'exists' : 'missing');
 
             if (!token) {
-                console.warn('⚠️ No token found');
-                setLoading(false);
+                console.warn('⚠️ No token found, redirecting to login');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
                 return;
             }
 
-            // ✅ Lấy user từ localStorage (đã được lưu khi login)
+            // ✅ Lấy user từ localStorage
             const storedUser = getUserFromStorage();
             console.log('🔍 Stored user:', storedUser);
 
             if (storedUser) {
                 setUser(storedUser);
             } else {
-                console.error('❌ No user data found');
+                // ✅ Fallback: Parse từ token nếu không có trong storage
+                console.warn('⚠️ No user in localStorage, parsing from token');
+                const userFromToken = getUserFromToken(token);
+
+                if (userFromToken) {
+                    setUser(userFromToken);
+                    // ✅ Lưu lại vào localStorage để lần sau không phải parse
+                    localStorage.setItem('user', JSON.stringify(userFromToken));
+                } else {
+                    console.error('❌ Cannot parse user from token');
+                }
             }
 
             setLoading(false);
         };
 
         loadUserData();
-    }, []);
+    }, [navigate]);
 
     if (loading) {
         return (
@@ -63,7 +75,10 @@ const ProfilePage: React.FC = () => {
                         <Button onClick={() => navigate('/dashboard')}>
                             Quay lại Dashboard
                         </Button>
-                        <Button type="primary" onClick={() => navigate('/login')}>
+                        <Button type="primary" onClick={() => {
+                            clearAuthData();
+                            window.location.href = '/login';
+                        }}>
                             Đăng nhập lại
                         </Button>
                     </Space>
@@ -126,7 +141,7 @@ const ProfilePage: React.FC = () => {
                             </Space>
                         }
                     >
-                        <Text code>{user.userId}</Text>
+                        <Text code>{user.userId || 'N/A'}</Text>
                     </Descriptions.Item>
 
                     <Descriptions.Item
@@ -148,7 +163,7 @@ const ProfilePage: React.FC = () => {
                             </Space>
                         }
                     >
-                        {user.username || 'Chưa có thông tin'}
+                        {user.username || user.email?.split('@')[0] || 'Chưa có'}
                     </Descriptions.Item>
 
                     <Descriptions.Item

@@ -109,6 +109,12 @@ export const clearAuthData = (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('selectedFarmId');
+    localStorage.removeItem('refreshToken');
+
+    // ✅ THÊM: Dispatch event để các component biết auth đã bị clear
+    window.dispatchEvent(new Event('storage'));
+
+    sessionStorage.clear();
 };
 
 /**
